@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
-using ServisTakipApi;
+using ServisTakipApi.Context;
 
 var builder = WebApplication.CreateBuilder(args);
 

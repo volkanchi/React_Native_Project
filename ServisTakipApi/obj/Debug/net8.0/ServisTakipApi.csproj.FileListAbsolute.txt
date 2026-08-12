@@ -113,3 +113,4 @@ C:\Code\React_Native\ServisTakipApi\obj\Debug\net8.0\refint\ServisTakipApi.dll
 C:\Code\React_Native\ServisTakipApi\obj\Debug\net8.0\ServisTakipApi.pdb
 C:\Code\React_Native\ServisTakipApi\obj\Debug\net8.0\ServisTakipApi.genruntimeconfig.cache
 C:\Code\React_Native\ServisTakipApi\obj\Debug\net8.0\ref\ServisTakipApi.dll
+C:\Code\React_Native\ServisTakipApi\bin\Debug\net8.0\BCrypt-Net-Next.dll
