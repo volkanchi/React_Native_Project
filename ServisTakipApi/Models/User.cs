@@ -14,19 +14,22 @@ namespace ServisTakipApi.Models
         public string? Address { get; set; }
 
         // GÜVENLİK VE YETKİ
-        public string? PasswordHash { get; set; } 
-        public UserRole Role { get; set; } 
+        public string? PasswordHash { get; set; }
+        public UserRole Role { get; set; }
 
         // LOGLAMA VE SİSTEM TAKİBİ (AUDIT) 
         public Guid? CreateUser { get; set; }
         public DateTime? CreateDate { get; set; }
-        
         public Guid? UpdateUser { get; set; }
         public DateTime? UpdateDate { get; set; }
-        
         public Guid? DeleteUser { get; set; }
         public DateTime? DeleteDate { get; set; }
+            
         // Soft Delete 
-        public bool Deleted { get; set; } = false; 
+        public bool Deleted { get; set; } = false;
+        
+        // sirket 
+        public Guid? CompanyId { get; set; }
+        public Company? Company { get; set; }
     }
 }

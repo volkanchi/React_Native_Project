@@ -17,12 +17,12 @@ namespace ServisTakipApi.Repositories
 
         public async Task<bool> IsEmailExistsAsync(string email)
         {
-            return await _context.Users.AnyAsync(u => u.Email == email);
+            return await _context.Users.AnyAsync(u => u.Email == email && !u.Deleted);
         }
 
         public async Task<bool> IsUsernameExistsAsync(string username)
         {
-            return await _context.Users.AnyAsync(u => u.Username == username);
+            return await _context.Users.AnyAsync(u => u.Username == username && !u.Deleted);
         }
 
         public async Task<User> AddUserAsync(User user)

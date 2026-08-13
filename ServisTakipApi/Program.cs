@@ -1,6 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using ServisTakipApi.Context;
+using ServisTakipApi.Interfaces;
+using ServisTakipApi.Repositories;
+using ServisTakipApi.Services;
+using ServisTakipApi.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,12 +21,26 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // 3. Canlı Konum Takibi İçin SignalR Servisi
 builder.Services.AddSignalR();
-
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
+builder.Services.AddScoped<ICompanyService, CompanyService>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowMobile", builder =>
+        builder.WithOrigins("http://localhost:*", "http://192.168.*.*")
+               .AllowAnyMethod()
+               .AllowAnyHeader());
+});
+
 var app = builder.Build();
+
+// Global exception handling middleware
+app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
@@ -30,6 +48,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseCors("AllowMobile");
 app.UseAuthorization();
 app.MapControllers();
 
