@@ -1,10 +1,12 @@
 using ServisTakipApi.Models;
-using ServisTakipApi.DTOs.UserDTOs;
-using ServisTakipApi.DTOs.Response;
+using System.Threading.Tasks;
+
 namespace ServisTakipApi.Interfaces
 {
     public interface IUserRepository
     {
-        public Task<Response<User>> UserRegisterAsync(UserRegisterDto registerUserDto);
+        Task<bool> IsEmailExistsAsync(string email);
+        Task<bool> IsUsernameExistsAsync(string username);
+        Task<User> AddUserAsync(User user);
     }
 }

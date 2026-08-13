@@ -1,15 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
-using ServisTakipApi.Context;
-using ServisTakipApi.Models;
 using ServisTakipApi.DTOs.UserDTOs;
-using ServisTakipApi.Repositories;
-using ServisTakipApi.Mappers;
 using ServisTakipApi.DTOs.Response;
-using ServisTakipApi.Helpers;
-using System;
-using System.Linq;
 using ServisTakipApi.Interfaces;
-
+using ServisTakipApi.Models;
+using System;
+using System.Threading.Tasks;
 
 namespace ServisTakipApi.Controllers
 {
@@ -17,25 +12,32 @@ namespace ServisTakipApi.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        private readonly IUserRepository _userRepository;
-        public UserController(IUserRepository userRepository)
+        private readonly IUserService _userService;
+
+        public UserController(IUserService userService)
         {
-            _userRepository = userRepository;
+            _userService = userService;
         }
 
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] UserRegisterDto registerDto)
         {
             if(!ModelState.IsValid) return BadRequest(ModelState);
+            
             try
             {
-                var response = await _userRepository.UserRegisterAsync(registerDto);
-                return Ok(response);
+                var response = await _userService.RegisterUserAsync(registerDto);
+                
+                // Response nesnesindeki Success değişkenine bakarak durumu belirliyoruz
+                if (response.Success)
+                    return Ok(response);
+                    
+                return BadRequest(response);
             }
             catch(Exception ex)
             {
                 return BadRequest(Response<User>.Fail(ex.Message));
             }
         }
-        }
     }
+}

@@ -14,7 +14,7 @@ namespace ServisTakipApi.Mappers
                 Username = registerDto.Username,
                 Email = registerDto.Email,
                 PhoneNumber = registerDto.PhoneNumber,
-                Role = registerDto.Role,
+                Role = UserRole.Yolcu, //default olarak veriyorum
                 CreateDate = DateTime.UtcNow,
                 PasswordHash = hashedPassword
 

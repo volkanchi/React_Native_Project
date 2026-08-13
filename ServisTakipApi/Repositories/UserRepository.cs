@@ -1,11 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using ServisTakipApi.Context;
-using ServisTakipApi.DTOs.Response;
-using ServisTakipApi.DTOs.UserDTOs;
 using ServisTakipApi.Interfaces;
 using ServisTakipApi.Models;
-using ServisTakipApi.Mappers;
-using ServisTakipApi.Helpers;
+using System.Threading.Tasks;
 
 namespace ServisTakipApi.Repositories
 {
@@ -18,36 +15,21 @@ namespace ServisTakipApi.Repositories
             _context = context;
         }
 
-        public async Task<Response<User>> UserRegisterAsync(UserRegisterDto registerUserDto)
+        public async Task<bool> IsEmailExistsAsync(string email)
         {
-            try
-            {
-                var isUserExistsWithEmail = await _context.Users.AnyAsync(u => u.Email == registerUserDto.Email);
-                if (isUserExistsWithEmail)
-                {
-                    return Response<User>.Fail("Bu e-posta adresi zaten kullanılıyor.");
-                }
+            return await _context.Users.AnyAsync(u => u.Email == email);
+        }
 
-                var isUserExistsWithUsername = await _context.Users.AnyAsync(u => u.Username == registerUserDto.Username);
-                if (isUserExistsWithUsername)
-                {
-                    return Response<User>.Fail("Bu kullanıcı adı zaten kullanılıyor.");
-                }
+        public async Task<bool> IsUsernameExistsAsync(string username)
+        {
+            return await _context.Users.AnyAsync(u => u.Username == username);
+        }
 
-                var hashedPassword = PasswordHasher.HashPassword(registerUserDto.Password);
-                var user = registerUserDto.ToUserModel(hashedPassword);
-                
-                user.CreateUser = user.Id;
-
-                await _context.Users.AddAsync(user);
-                await _context.SaveChangesAsync(); 
-
-                return Response<User>.Successful("Başarıyla kayıt olundu.", user);
-            }
-            catch (Exception ex)
-            {
-                return Response<User>.Fail("Bir hata oluştu: " + ex.Message);
-            }
+        public async Task<User> AddUserAsync(User user)
+        {
+            await _context.Users.AddAsync(user);
+            await _context.SaveChangesAsync();
+            return user;
         }
     }
 }
