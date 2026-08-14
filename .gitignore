@@ -46,4 +46,4 @@ example
 
 # API secrets
 /ServisTakipApi/appsettings.json
-ServisTakipApi/appsettings.Development.json
+/ServisTakipApi/appsettings.Development.json
