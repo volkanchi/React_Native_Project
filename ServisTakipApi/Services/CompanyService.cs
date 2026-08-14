@@ -24,19 +24,17 @@ namespace ServisTakipApi.Services
         {
             try
             {
-                // Check if email already exists
                 if (await _companyRepository.IsEmailExistsAsync(companyDto.Email))
                 {
                     return Response<Company>.Fail("Bu e-posta adresi zaten kullanılıyor.");
                 }
 
-                // Check if username already exists
+                // Check if username exists in both company and user repositories
                 if (await _companyRepository.IsUsernameExistsAsync(companyDto.Username))
                 {
                     return Response<Company>.Fail("Bu kullanıcı adı zaten kullanılıyor.");
                 }
 
-                // Also check in User table
                 if (await _userRepository.IsUsernameExistsAsync(companyDto.Username))
                 {
                     return Response<Company>.Fail("Bu kullanıcı adı zaten kullanılıyor.");
