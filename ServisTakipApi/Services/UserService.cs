@@ -12,10 +12,12 @@ namespace ServisTakipApi.Services
     public class UserService : IUserService
     {
         private readonly IUserRepository _userRepository;
+        private readonly ITokenService _tokenService;
 
-        public UserService(IUserRepository userRepository)
+        public UserService(IUserRepository userRepository, ITokenService tokenService)
         {
             _userRepository = userRepository;
+            _tokenService = tokenService;
         }
 
         public async Task<Response<User>> RegisterUserAsync(UserRegisterDto registerUserDto)
@@ -34,7 +36,7 @@ namespace ServisTakipApi.Services
                 }
 
                 var hashedPassword = PasswordHasher.HashPassword(registerUserDto.Password);
-                
+
                 // Daha önce yazdığımız manuel Mapper'ı burada devreye sokuyoruz
                 var user = registerUserDto.ToUserModel(hashedPassword);
 
@@ -46,6 +48,34 @@ namespace ServisTakipApi.Services
             catch (Exception ex)
             {
                 return Response<User>.Fail("Bir hata oluştu: " + ex.Message);
+            }
+        }
+        public async Task<Response<string>> LoginUserAsync(UserLoginDto loginDto)
+        {
+            try
+            {
+                // 1. Kullanıcıyı bul
+                var user = await _userRepository.GetUserByEmailAsync(loginDto.Email);
+                if (user == null)
+                {
+                    return Response<string>.Fail("E-posta adresi veya şifre hatalı.");
+                }
+
+                // 2. Şifreyi BCrypt ile doğrula (PasswordHasher sınıfımızı kullanıyoruz)
+                bool isPasswordValid = BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash);
+                if (!isPasswordValid)
+                {
+                    return Response<string>.Fail("E-posta adresi veya şifre hatalı."); // Güvenlik: Hangisinin hatalı olduğunu söylemiyoruz
+                }
+
+                // 3. Şifre doğruysa Token üret
+                var token = _tokenService.GenerateToken(user);
+
+                return Response<string>.Successful("Giriş başarılı.", token);
+            }
+            catch (Exception ex)
+            {
+                return Response<string>.Fail("Giriş yapılırken bir hata oluştu: " + ex.Message);
             }
         }
     }

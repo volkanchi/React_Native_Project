@@ -8,5 +8,6 @@ namespace ServisTakipApi.Interfaces
     public interface IUserService
     {
         Task<Response<User>> RegisterUserAsync(UserRegisterDto registerUserDto);
+        Task<Response<string>> LoginUserAsync(UserLoginDto loginDto);
     }
 }

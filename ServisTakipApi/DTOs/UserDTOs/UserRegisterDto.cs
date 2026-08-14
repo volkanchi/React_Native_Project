@@ -24,6 +24,7 @@ namespace ServisTakipApi.DTOs.UserDTOs
 
         [Required(ErrorMessage = "Telefon numarası gereklidir.")]
         [Phone(ErrorMessage = "Geçerli bir telefon numarası giriniz.")]
+        [RegularExpression(@"^\+?\d{10}$", ErrorMessage = "Telefon numarası haneli olmalıdır ile başlayabilir.")]
         public required string PhoneNumber { get; set; }
 
         [Required(ErrorMessage = "Kullanıcı adı gereklidir.")]

@@ -22,21 +22,41 @@ namespace ServisTakipApi.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] UserRegisterDto registerDto)
         {
-            if(!ModelState.IsValid) return BadRequest(ModelState);
-            
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
             try
             {
                 var response = await _userService.RegisterUserAsync(registerDto);
-                
+
                 // Response nesnesindeki Success değişkenine bakarak durumu belirliyoruz
                 if (response.Success)
                     return Ok(response);
-                    
+
                 return BadRequest(response);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 return BadRequest(Response<User>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] UserLoginDto loginDto)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            try
+            {
+                var response = await _userService.LoginUserAsync(loginDto);
+
+                if (response.Success)
+                    return Ok(response); // 200 OK ile token'ı döner
+
+                return BadRequest(response); // 400 Bad Request
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(Response<string>.Fail(ex.Message));
             }
         }
     }

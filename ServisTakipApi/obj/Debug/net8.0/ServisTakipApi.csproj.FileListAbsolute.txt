@@ -114,3 +114,11 @@ C:\Code\React_Native\ServisTakipApi\obj\Debug\net8.0\ServisTakipApi.pdb
 C:\Code\React_Native\ServisTakipApi\obj\Debug\net8.0\ServisTakipApi.genruntimeconfig.cache
 C:\Code\React_Native\ServisTakipApi\obj\Debug\net8.0\ref\ServisTakipApi.dll
 C:\Code\React_Native\ServisTakipApi\bin\Debug\net8.0\BCrypt-Net-Next.dll
+C:\Code\React_Native\ServisTakipApi\bin\Debug\net8.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+C:\Code\React_Native\ServisTakipApi\bin\Debug\net8.0\Microsoft.IdentityModel.Abstractions.dll
+C:\Code\React_Native\ServisTakipApi\bin\Debug\net8.0\Microsoft.IdentityModel.JsonWebTokens.dll
+C:\Code\React_Native\ServisTakipApi\bin\Debug\net8.0\Microsoft.IdentityModel.Logging.dll
+C:\Code\React_Native\ServisTakipApi\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.dll
+C:\Code\React_Native\ServisTakipApi\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+C:\Code\React_Native\ServisTakipApi\bin\Debug\net8.0\Microsoft.IdentityModel.Tokens.dll
+C:\Code\React_Native\ServisTakipApi\bin\Debug\net8.0\System.IdentityModel.Tokens.Jwt.dll
