@@ -1,5 +1,6 @@
 using ServisTakipApi.DTOs.CompanyDTOs;
 using ServisTakipApi.DTOs.Response;
+using ServisTakipApi.DTOs.DriverDTOs;
 using ServisTakipApi.Helpers;
 using ServisTakipApi.Interfaces;
 using ServisTakipApi.Mappers;
@@ -59,5 +60,30 @@ namespace ServisTakipApi.Services
                 return Response<Company>.Fail("Bir hata oluştu: " + ex.Message);
             }
         }
+        public async Task<Response<User>> CreateDriverAsync(DriverCreateDto driverDto, Guid companyId)
+        {
+            try
+            {
+                if (await _userRepository.IsEmailExistsAsync(driverDto.Email))
+                    return Response<User>.Fail("Bu e-posta adresi sistemde zaten mevcut.");
+
+                if (await _userRepository.IsUsernameExistsAsync(driverDto.Username))
+                    return Response<User>.Fail("Bu kullanıcı adı zaten alınmış.");
+
+                var hashedPassword = PasswordHasher.HashPassword(driverDto.Password);
+
+                // Mapper'ı çağırırken Service'e gelen CompanyId'yi de veriyoruz
+                var driverUser = DriverMapper.MapToDriverUser(driverDto, hashedPassword, companyId);
+
+                var addedDriver = await _userRepository.AddUserAsync(driverUser);
+
+                return Response<User>.Successful("Şoför başarıyla eklendi.", addedDriver);
+            }
+            catch (Exception ex)
+            {
+                return Response<User>.Fail("Şoför eklenirken bir hata oluştu: " + ex.Message);
+            }
+        }
     }
 }
+
