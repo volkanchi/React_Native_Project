@@ -78,5 +78,49 @@ namespace ServisTakipApi.Services
                 return Response<string>.Fail("Giriş yapılırken bir hata oluştu: " + ex.Message);
             }
         }
+        public async Task<Response<User>> UpdateUserAsync(Guid userId, UserUpdateDto updateDto, Guid actionUserId)
+        {
+            try
+            {
+                var user = await _userRepository.GetUserByIdAsync(userId);
+                if (user == null)
+                    return Response<User>.Fail("Kullanıcı bulunamadı.");
+
+                // Bilgileri güncelliyoruz
+                user.Name = updateDto.Name;
+                user.Surname = updateDto.Surname;
+                // Not: User modelindeki alan adın Phone ise user.Phone, PhoneNumber ise user.PhoneNumber yazmalısın.
+                user.PhoneNumber = updateDto.PhoneNumber;
+
+                // Denetim (Audit) Alanları
+                user.UpdateDate = DateTime.UtcNow;
+                user.UpdateUser = actionUserId;
+
+                var updatedUser = await _userRepository.UpdateUserAsync(user);
+                return Response<User>.Successful("Profil başarıyla güncellendi.", updatedUser);
+            }
+            catch (Exception ex)
+            {
+                return Response<User>.Fail("Güncelleme sırasında bir hata oluştu: " + ex.Message);
+            }
+        }
+
+        public async Task<Response<bool>> DeleteUserAsync(Guid userId, Guid actionUserId)
+        {
+            try
+            {
+                var isDeleted = await _userRepository.SoftDeleteUserAsync(userId, actionUserId);
+
+                if (!isDeleted)
+                    return Response<bool>.Fail("Kullanıcı bulunamadı veya zaten silinmiş.");
+
+                return Response<bool>.Successful("Hesap başarıyla silindi.", true);
+            }
+            catch (Exception ex)
+            {
+                return Response<bool>.Fail("Silme işlemi sırasında bir hata oluştu: " + ex.Message);
+            }
+        }
+
     }
 }

@@ -5,6 +5,8 @@ using ServisTakipApi.Interfaces;
 using ServisTakipApi.Models;
 using System;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace ServisTakipApi.Controllers
 {
@@ -57,6 +59,55 @@ namespace ServisTakipApi.Controllers
             catch (Exception ex)
             {
                 return BadRequest(Response<string>.Fail(ex.Message));
+            }
+        }
+
+        [Authorize] 
+        [HttpPut("update-profile")]
+        public async Task<IActionResult> UpdateProfile([FromBody] UserUpdateDto updateDto)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            try
+            {
+                // Token'dan istek atan kişinin ID'sini çekiyoruz
+                var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
+
+                Guid userId = Guid.Parse(userIdClaim);
+
+                // Kendi profilini güncellediği için actionUserId de kendisi (userId) oluyor
+                var response = await _userService.UpdateUserAsync(userId, updateDto, userId);
+
+                if (response.Success) return Ok(response);
+                return BadRequest(response);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(Response<User>.Fail(ex.Message));
+            }
+        }
+
+        [Authorize]
+        [HttpDelete("delete-profile")]
+        public async Task<IActionResult> DeleteProfile()
+        {
+            try
+            {
+                // Token'dan ID'yi çekiyoruz
+                var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
+
+                Guid userId = Guid.Parse(userIdClaim);
+
+                var response = await _userService.DeleteUserAsync(userId, userId);
+
+                if (response.Success) return Ok(response);
+                return BadRequest(response);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(Response<bool>.Fail(ex.Message));
             }
         }
     }

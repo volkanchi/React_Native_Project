@@ -39,5 +39,42 @@ namespace ServisTakipApi.Repositories
         {
             return await _context.Users.FirstOrDefaultAsync(u => u.Username == username && !u.Deleted);
         }
+        public async Task<User?> GetUserByIdAsync(Guid id)
+        {
+            return await _context.Users.FirstOrDefaultAsync(u => u.Id == id && !u.Deleted);
+        }
+        public async Task<User> UpdateUserAsync(User user)
+        {
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+            return user;
+        }
+
+        public async Task<bool> SoftDeleteUserAsync(Guid userId, Guid? actionUserId)
+        {
+            var user = await _context.Users.FindAsync(userId);
+
+            if (user == null || user.Deleted)
+                return false;
+
+            // Soft Delete 
+            user.Deleted = true;
+            user.DeleteDate = DateTime.UtcNow;
+            user.DeleteUser = actionUserId;
+
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+        public async Task<User?> GetDriverByIdAndCompanyIdAsync(Guid driverId, Guid companyId)
+        {
+            // Kullanıcı hem silinmemiş olmalı, hem istenen ID'ye sahip olmalı, hem de bu firmaya ait bir "Şoför" olmalı
+            return await _context.Users.FirstOrDefaultAsync(u =>
+                u.Id == driverId &&
+                u.CompanyId == companyId &&
+                u.Role == UserRole.Sofor &&
+                !u.Deleted);
+        }
     }
 }

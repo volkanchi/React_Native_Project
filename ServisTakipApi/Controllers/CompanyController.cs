@@ -75,6 +75,61 @@ namespace ServisTakipApi.Controllers
                 return BadRequest(Response<User>.Fail(ex.Message));
             }
         }
+        [HttpPut("update-driver/{driverId}")]
+        public async Task<IActionResult> UpdateDriver(Guid driverId, [FromBody] DriverUpdateDto updateDto)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            try
+            {
+                // 1. Token'dan bu işlemi yapmaya çalışan Firmanın ID'sini çekiyoruz
+                var companyIdClaim = User.Claims.FirstOrDefault(c => c.Type == "CompanyId")?.Value;
+
+                if (string.IsNullOrEmpty(companyIdClaim))
+                    return Unauthorized(Response<User>.Fail("Firma kimlik bilgisi doğrulanamadı. Lütfen tekrar giriş yapın."));
+
+                Guid companyId = Guid.Parse(companyIdClaim);
+
+                // 2. Güncelleme işlemini Service katmanına devrediyoruz
+                var response = await _companyService.UpdateDriverAsync(driverId, companyId, updateDto);
+
+                if (response.Success)
+                    return Ok(response);
+
+                return BadRequest(response); // Hata varsa (örn: şoför bu firmaya ait değilse) 400 döner
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(Response<User>.Fail(ex.Message));
+            }
+        }
+
+        [HttpDelete("delete-driver/{driverId}")]
+        public async Task<IActionResult> DeleteDriver(Guid driverId)
+        {
+            try
+            {
+                // 1. Token'dan Firmanın ID'sini çekiyoruz
+                var companyIdClaim = User.Claims.FirstOrDefault(c => c.Type == "CompanyId")?.Value;
+
+                if (string.IsNullOrEmpty(companyIdClaim))
+                    return Unauthorized(Response<bool>.Fail("Firma kimlik bilgisi doğrulanamadı. Lütfen tekrar giriş yapın."));
+
+                Guid companyId = Guid.Parse(companyIdClaim);
+
+                // 2. Silme (Soft Delete) işlemini Service katmanına devrediyoruz
+                var response = await _companyService.DeleteDriverAsync(driverId, companyId);
+
+                if (response.Success)
+                    return Ok(response);
+
+                return BadRequest(response);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(Response<bool>.Fail(ex.Message));
+            }
+        }
     }
 }
 

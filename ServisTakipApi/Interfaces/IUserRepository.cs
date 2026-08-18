@@ -10,5 +10,9 @@ namespace ServisTakipApi.Interfaces
         Task<User> AddUserAsync(User user);
         Task<User?> GetUserByEmailAsync(string email);
         Task<User?> GetUserByUsernameAsync(string username);
+        Task<User?> GetUserByIdAsync(Guid userId);
+        Task<User> UpdateUserAsync(User user);
+        Task<bool> SoftDeleteUserAsync(Guid userId, Guid? actionUserId); // actionUserId = Silen kişinin ID'si
+        Task<User?> GetDriverByIdAndCompanyIdAsync(Guid driverId, Guid companyId);
     }
 }

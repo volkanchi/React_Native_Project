@@ -6,7 +6,7 @@ namespace ServisTakipApi.Mappers
 {
     public static class DriverMapper
     {
-        public static User MapToDriverUser(DriverCreateDto request, string hashedPassword, Guid companyId)
+        public static User MapToDriverUser(DriverCreateDto request, string hashedPassword, Guid companyId, Guid actionUserId)
         {
             return new User
             {
@@ -20,7 +20,8 @@ namespace ServisTakipApi.Mappers
                 PasswordHash = hashedPassword,
                 // Token'dan gelen firmanın ID'si şoföre atanıyor
                 CompanyId = companyId, 
-                Role = UserRole.Sofor 
+                Role = UserRole.Sofor,
+                CreateUser = actionUserId,  // Set who created this driver
             };
         }
     }
