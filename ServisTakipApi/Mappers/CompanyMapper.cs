@@ -2,17 +2,9 @@ using ServisTakipApi.Models;
 using ServisTakipApi.DTOs.CompanyDTOs;
 namespace ServisTakipApi.Mappers
 {
-    /// <summary>
-    /// Şirket DTO'larını model'lere dönüştürmek için mapper sınıfı
-    /// </summary>
     public static class CompanyMapper
     {
-        /// <summary>
         /// Şirket oluşturma DTO'sunu Company ve User modeline dönüştürür
-        /// </summary>
-        /// <param name="companyDto">Şirket oluşturma verisi</param>
-        /// <param name="hashedPassword">Hash'lenmiş şifre</param>
-        /// <returns>Oluşturulan Company ve User modelleri</returns>
         public static (Company company, User user) ToCompanyAndUserModel(this CompanyCreateDto companyDto, string hashedPassword)
         {
             var newCompanyId = Guid.NewGuid(); // ortak id 
@@ -32,7 +24,7 @@ namespace ServisTakipApi.Mappers
             var user = new User
             {
                 Id = Guid.NewGuid(),
-                CompanyId = newCompanyId, // kullanici sirket ile iliskilendiriyor yonetici ve sofor olarak
+                CompanyId = newCompanyId, // kullanici sirket ile iliskilendiriyor yonetici olarak
                 Name = companyDto.CompanyName,
                 Email = companyDto.Email,
                 PhoneNumber = companyDto.PhoneNumber,
