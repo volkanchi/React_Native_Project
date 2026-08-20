@@ -6,7 +6,7 @@ namespace ServisTakipApi.Models
     public class Route
     {
         public Guid Id { get; set; } = Guid.NewGuid();
-        
+        public required string RouteCode { get; set; }
         public required string Name { get; set; } // Güzergah Adı
         public LineString? RoutePath { get; set; } // rotanın çizilmiş polyline hali 
         public DateTime CreateDate { get; set; } = DateTime.UtcNow;

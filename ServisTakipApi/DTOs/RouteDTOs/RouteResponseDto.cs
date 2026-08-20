@@ -6,6 +6,7 @@ namespace ServisTakipApi.DTOs.RouteDTOs
     public class RouteResponseDto
     {
         public Guid Id { get; set; }
+        public required string RouteCode { get; set; }
         public required string Name { get; set; }
         public Guid CompanyId { get; set; }
         public Guid VehicleId { get; set; }

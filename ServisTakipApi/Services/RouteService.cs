@@ -46,8 +46,22 @@ namespace ServisTakipApi.Services
 
                 var routePath = _geometryFactory.CreateLineString(coordinates);
 
+
+                var plateNumber = await _routeRepository.GetVehiclePlateByIdAsync(createDto.VehicleId, companyId);
+                if (string.IsNullOrEmpty(plateNumber))
+                {
+                    return Response<RouteResponseDto>.Fail("Araç bulunamadı veya plakası geçersiz.");
+                }
+
+                // 2. Plakadaki boşlukları temizle (Örn: "34 ABC 123" -> "34ABC123") ve 4 haneli rastgele sayı üret
+                var cleanPlate = plateNumber.Replace(" ", "").ToUpper();
+                var randomSuffix = new Random().Next(1000, 10000).ToString(); // 1000 ile 9999 arası sayı
+                var generatedRouteCode = $"{cleanPlate}-{randomSuffix}"; // Örn: 34ABC123-8472
+
+                // 3. Rota Nesnesini Oluştur
                 var newRoute = new Models.Route
                 {
+                    RouteCode = generatedRouteCode,
                     Name = createDto.Name,
                     CompanyId = companyId,
                     VehicleId = createDto.VehicleId,
@@ -154,6 +168,7 @@ namespace ServisTakipApi.Services
             return new RouteResponseDto
             {
                 Id = route.Id,
+                RouteCode = route.RouteCode,
                 Name = route.Name,
                 CompanyId = route.CompanyId,
                 VehicleId = route.VehicleId,
@@ -177,5 +192,96 @@ namespace ServisTakipApi.Services
                 }).ToList()
             };
         }
+        public async Task<Response<bool>> JoinRouteAsync(Guid passengerId, JoinRouteDto joinDto)
+        {
+            var route = await _routeRepository.GetRouteByCodeAsync(joinDto.RouteCode);
+            if (route == null) return Response<bool>.Fail("Geçersiz veya silinmiş bir servis kodu girdiniz.");
+
+            if (route.Stops.Any(s => s.PassengerId == passengerId))
+                return Response<bool>.Fail("Bu servise zaten kayıtlısınız.");
+
+            // 1. Yeni durağı oluştur
+            var newStop = new RouteStop
+            {
+                RouteId = route.Id,
+                PassengerId = passengerId,
+                IsActive = true,
+                Location = _geometryFactory.CreatePoint(new Coordinate(joinDto.Location.Longitude, joinDto.Location.Latitude))
+            };
+
+            // 2. Yeni durağı rotanın hafızadaki durak listesine ekle
+            route.Stops.Add(newStop);
+
+            // 3. Tüm durakları harita çizgisine göre yeniden sırala (StopOrder'ları günceller)
+            ReorderRouteStops(route);
+
+            // 4. Veritabanına kaydet
+            await _routeRepository.AddRouteStopAndUpdateOrdersAsync(
+                newStop,
+                route.Stops.Where(s => s.Id != newStop.Id));
+
+            return Response<bool>.Successful("Servise başarıyla katıldınız.", true);
+        }
+
+        public async Task<Response<bool>> UpdateStopLocationAsync(Guid passengerId, Guid routeId, UpdateStopLocationDto updateDto)
+        {
+            // Artık sadece durağı değil, çizgiyi de (Route) getirmeliyiz ki sırayı hesaplayabilelim
+            var route = await _routeRepository.GetRouteWithStopsByIdAsync(routeId);
+            if (route == null) return Response<bool>.Fail("Rota bulunamadı.");
+
+            var stop = route.Stops.FirstOrDefault(s => s.PassengerId == passengerId);
+            if (stop == null) return Response<bool>.Fail("Bu servise ait bir kaydınız bulunamadı.");
+
+            // 1. Konumu güncelle
+            stop.Location = _geometryFactory.CreatePoint(new Coordinate(updateDto.NewLocation.Longitude, updateDto.NewLocation.Latitude));
+
+            // 2. Konum değiştiği için durağın sırası (StopOrder) değişmiş olabilir, yeniden sırala!
+            ReorderRouteStops(route);
+
+            // 3. Tüm güncellemeleri veritabanına yansıt
+            await _routeRepository.UpdateRouteStopsAsync(route.Stops);
+
+            return Response<bool>.Successful("Konumunuz başarıyla güncellendi.", true);
+        }
+
+        public async Task<Response<bool>> LeaveRouteAsync(Guid passengerId, Guid routeId)
+        {
+            var route = await _routeRepository.GetRouteWithStopsByIdAsync(routeId);
+            if (route == null) return Response<bool>.Fail("Rota bulunamadı.");
+
+            var stop = route.Stops.FirstOrDefault(s => s.PassengerId == passengerId);
+            if (stop == null) return Response<bool>.Fail("Bu serviste zaten kaydınız yok.");
+
+            route.Stops.Remove(stop);
+            ReorderRouteStops(route);
+            await _routeRepository.RemoveRouteStopAndUpdateOrdersAsync(stop, route.Stops);
+            return Response<bool>.Successful("Servisten başarıyla ayrıldınız.", true);
+        }
+        // YARDIMCI METOT: Durakları harita çizgisine (Polyline) göre sıraya dizer
+        private void ReorderRouteStops(Models.Route route)
+        {
+            if (route.RoutePath == null || !route.Stops.Any()) return;
+
+            // 1. Ana rotayı indekslenebilir bir matematiksel çizgiye çevir
+            var indexedLine = new NetTopologySuite.LinearReferencing.LengthIndexedLine(route.RoutePath);
+
+            // 2. Her durağın konumunu ana çizgiye yansıt (izdüşüm) ve mesafesine (Project) göre küçükten büyüğe sırala
+            var sortedStops = route.Stops
+                .Select(stop => new
+                {
+                    Stop = stop,
+                    ProjectedIndex = indexedLine.Project(stop.Location.Coordinate)
+                })
+                .OrderBy(x => x.ProjectedIndex)
+                .ToList();
+
+            // 3. Sıralanmış listeye 1'den başlayarak yeni durak sıralarını (StopOrder) ata
+            int order = 1;
+            foreach (var item in sortedStops)
+            {
+                item.Stop.StopOrder = order++;
+            }
+        }
+
     }
 }

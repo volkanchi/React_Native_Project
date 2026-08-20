@@ -45,7 +45,7 @@ namespace ServisTakipApi.Context
                 .WithMany()
                 .HasForeignKey(r => r.DriverId)
                 .OnDelete(DeleteBehavior.Restrict);
-                
+
             // RouteStop -> Rota İlişkisi (Rota silinirse duraklar kazara silinmesin)
             modelBuilder.Entity<RouteStop>()
                 .HasOne(rs => rs.Route)
@@ -59,6 +59,11 @@ namespace ServisTakipApi.Context
                 .WithMany()
                 .HasForeignKey(rs => rs.PassengerId)
                 .OnDelete(DeleteBehavior.Restrict);
+                
+            // RouteCode kolonunu benzersiz (Unique) hale getiriyoruz
+            modelBuilder.Entity<Models.Route>()
+                .HasIndex(r => r.RouteCode)
+                .IsUnique();
         }
     }
 }

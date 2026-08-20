@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using ServisTakipApi.Context;
 using ServisTakipApi.Interfaces;
 using ServisTakipApi.Models;
@@ -53,6 +54,14 @@ namespace ServisTakipApi.Repositories
                 .Include(r => r.Stops)
                 .FirstOrDefaultAsync(r => r.Id == routeId && r.CompanyId == companyId && !r.Deleted);
         }
+        public async Task<string?> GetVehiclePlateByIdAsync(Guid vehicleId, Guid companyId)
+        {
+            // Aracı bul ve sadece plakasını döndür (Güvenlik için CompanyId kontrolü de yapıyoruz)
+            var vehicle = await _context.Vehicles
+                .FirstOrDefaultAsync(v => v.Id == vehicleId && v.CompanyId == companyId && !v.Deleted);
+
+            return vehicle?.PlateNumber;
+        }
 
         public async Task<Models.Route> UpdateRouteAsync(Models.Route route)
         {
@@ -72,6 +81,71 @@ namespace ServisTakipApi.Repositories
             _context.Routes.Update(route);
             await _context.SaveChangesAsync();
             return true;
+        }
+        public async Task<Models.Route?> GetRouteByCodeAsync(string routeCode)
+        {
+            // Koda göre rotayı buluruz (Silinmemiş olmalı)
+            return await _context.Routes
+                .Include(r => r.Stops) // Durakları (yolcular) da dahil et ki sırayı (StopOrder) hesaplayabilelim
+                .FirstOrDefaultAsync(r => r.RouteCode == routeCode && !r.Deleted);
+        }
+
+        public async Task<RouteStop?> GetRouteStopAsync(Guid routeId, Guid passengerId)
+        {
+            return await _context.RouteStops
+                .FirstOrDefaultAsync(rs => rs.RouteId == routeId && rs.PassengerId == passengerId);
+        }
+
+        public async Task<RouteStop> AddRouteStopAsync(RouteStop stop)
+        {
+            _context.RouteStops.Add(stop);
+            await _context.SaveChangesAsync();
+            return stop;
+        }
+
+        public async Task<RouteStop> UpdateRouteStopAsync(RouteStop stop)
+        {
+            _context.RouteStops.Update(stop);
+            await _context.SaveChangesAsync();
+            return stop;
+        }
+
+        public async Task<bool> RemoveRouteStopAsync(RouteStop stop)
+        {
+            _context.RouteStops.Remove(stop);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task AddRouteStopAndUpdateOrdersAsync(RouteStop newStop, IEnumerable<RouteStop> existingStops)
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            _context.RouteStops.Add(newStop);
+            _context.RouteStops.UpdateRange(existingStops);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+
+        public async Task RemoveRouteStopAndUpdateOrdersAsync(RouteStop stop, IEnumerable<RouteStop> remainingStops)
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            _context.RouteStops.Remove(stop);
+            _context.RouteStops.UpdateRange(remainingStops);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+
+        public async Task<Models.Route?> GetRouteWithStopsByIdAsync(Guid routeId)
+        {
+            return await _context.Routes
+                .Include(r => r.Stops)
+                .FirstOrDefaultAsync(r => r.Id == routeId && !r.Deleted);
+        }
+
+        public async Task UpdateRouteStopsAsync(IEnumerable<RouteStop> stops)
+        {
+            _context.RouteStops.UpdateRange(stops);
+            await _context.SaveChangesAsync();
         }
     }
 }
