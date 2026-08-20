@@ -10,9 +10,10 @@ namespace ServisTakipApi.Context
         }
         public DbSet<User> Users { get; set; }
         public DbSet<Company> Companies { get; set; }
-        
+
         public DbSet<Vehicle> Vehicles { get; set; }
         public DbSet<Models.Route> Routes { get; set; }
+        public DbSet<RouteStop> RouteStops { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -43,6 +44,20 @@ namespace ServisTakipApi.Context
                 .HasOne(r => r.Driver)
                 .WithMany()
                 .HasForeignKey(r => r.DriverId)
+                .OnDelete(DeleteBehavior.Restrict);
+                
+            // RouteStop -> Rota İlişkisi (Rota silinirse duraklar kazara silinmesin)
+            modelBuilder.Entity<RouteStop>()
+                .HasOne(rs => rs.Route)
+                .WithMany(r => r.Stops)
+                .HasForeignKey(rs => rs.RouteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // RouteStop -> Yolcu (User) İlişkisi (Yolcu silinirse/pasife alınırsa durak kaydı uçmasın)
+            modelBuilder.Entity<RouteStop>()
+                .HasOne(rs => rs.Passenger)
+                .WithMany()
+                .HasForeignKey(rs => rs.PassengerId)
                 .OnDelete(DeleteBehavior.Restrict);
         }
     }

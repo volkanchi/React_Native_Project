@@ -35,7 +35,7 @@ namespace ServisTakipApi.Middleware
         {
             context.Response.ContentType = "application/json";
 
-            var response = new { success = false, message = "An internal server error occurred.", details = exception.Message };
+            var response = new { success = false, message = "An internal server error occurred." };
 
             context.Response.StatusCode = HttpStatusCode.InternalServerError switch
             {

@@ -1,4 +1,5 @@
 using System;
+using NetTopologySuite.Geometries;
 
 namespace ServisTakipApi.Models
 {
@@ -7,8 +8,7 @@ namespace ServisTakipApi.Models
         public Guid Id { get; set; } = Guid.NewGuid();
         
         public required string Name { get; set; } // Güzergah Adı
-        public required string StartLocation { get; set; } 
-        public required string EndLocation { get; set; } 
+        public LineString? RoutePath { get; set; } // rotanın çizilmiş polyline hali 
         public DateTime CreateDate { get; set; } = DateTime.UtcNow;
         public bool Deleted { get; set; } = false;
 
@@ -23,5 +23,8 @@ namespace ServisTakipApi.Models
         // İlişki 3: Bu rotada Şoför kim? (User tablosundan bağlanıyor)
         public Guid DriverId { get; set; } 
         public User? Driver { get; set; }
+
+        // İlişki 4: bire çok ilişki, bir rotanın birden fazla yolcusu olduğundan birden çok pin tutar 
+        public ICollection<RouteStop> Stops { get; set; } = new List<RouteStop>();
     }
 }
