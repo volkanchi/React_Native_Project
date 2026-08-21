@@ -3327,11 +3327,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Code\\React_Native\\ServisTakipApi\\ServisTakipApi.csproj",
+      "projectUniqueName": "C:\\Code\\ReactNative\\ServisTakip\\ServisTakipApi\\ServisTakipApi.csproj",
       "projectName": "ServisTakipApi",
-      "projectPath": "C:\\Code\\React_Native\\ServisTakipApi\\ServisTakipApi.csproj",
+      "projectPath": "C:\\Code\\ReactNative\\ServisTakip\\ServisTakipApi\\ServisTakipApi.csproj",
       "packagesPath": "C:\\Users\\hypno\\.nuget\\packages\\",
-      "outputPath": "C:\\Code\\React_Native\\ServisTakipApi\\obj\\",
+      "outputPath": "C:\\Code\\ReactNative\\ServisTakip\\ServisTakipApi\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\hypno\\AppData\\Roaming\\NuGet\\NuGet.Config"

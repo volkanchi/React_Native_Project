@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json.Serialization;
+using ServisTakipApi.Hubs; // SignalR LocationHub sınıfını tanıyabilmesi için eklendi
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,7 +43,6 @@ builder.Services.AddAuthentication(options =>
 });
 
 // 3. (Bonus) Swagger Üzerinden Token Girebilmek İçin Arayüz Ayarı
-// Bu sayede Postman'e gerek kalmadan Swagger üzerinden login olup token'ı sisteme verebileceksin.
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "ServisTakip API", Version = "v1" });
@@ -102,7 +102,8 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowMobile", builder =>
         builder.WithOrigins("http://localhost:*", "http://192.168.*.*")
                .AllowAnyMethod()
-               .AllowAnyHeader());
+               .AllowAnyHeader()
+               .AllowCredentials()); // SignalR için Credentials izni eklendi
 });
 
 var app = builder.Build();
@@ -121,7 +122,22 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// 4. SignalR Hub Rota Eşlemesi (Birazdan yazacağımız canlı konum sınıfı için)
-// app.MapHub<LiveLocationHub>("/hubs/location");
+// 4. SignalR Hub Rota Eşlemesi
+app.MapHub<LocationHub>("/locationHub");
 
+// --- Otomatik Veritabanı Güncelleme Bloğu (Windows Güvenliği Engelini Aşmak İçin) ---
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<AppDbContext>();
+        context.Database.Migrate(); 
+        Console.WriteLine("Veritabanı başarıyla güncellendi! Bekleyen tüm Migration'lar uygulandı.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Veritabanı güncellenirken hata oluştu: " + ex.Message);
+    }
+}
 app.Run();

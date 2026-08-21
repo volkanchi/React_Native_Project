@@ -1,49 +1,43 @@
-dotnet build# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# .NET build output
+ServisTakipApi/bin/
+ServisTakipApi/obj/
 
 # dependencies
-node_modules/
+ServisTakipMobil/node_modules/
 
 # Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
+ServisTakipMobil/.expo/
+ServisTakipMobil/dist/
+ServisTakipMobil/web-build/
+ServisTakipMobil/expo-env.d.ts
 
 # Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
+ServisTakipMobil/.kotlin/
+ServisTakipMobil/*.orig.*
+ServisTakipMobil/*.jks
+ServisTakipMobil/*.p8
+ServisTakipMobil/*.p12
+ServisTakipMobil/*.key
+ServisTakipMobil/*.mobileprovision
 
-# Metro
-.metro-health-check*
+# Metro and debug
+ServisTakipMobil/.metro-health-check*
+ServisTakipMobil/npm-debug.*
+ServisTakipMobil/yarn-debug.*
+ServisTakipMobil/yarn-error.*
 
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
+# Local files
 .DS_Store
-*.pem
+ServisTakipMobil/*.pem
+ServisTakipMobil/.env*.local
+ServisTakipMobil/*.tsbuildinfo
+ServisTakipMobil/example
 
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-example
-
-# generated native folders
-/ios
-/android
-
-/src/generated/prisma
+# Generated native folders and Prisma client
+ServisTakipMobil/ios/
+ServisTakipMobil/android/
+ServisTakipMobil/src/generated/prisma/
 
 # API secrets
-/ServisTakipApi/appsettings.json
-/ServisTakipApi/appsettings.Development.json
+ServisTakipApi/appsettings.Development.json
+ServisTakipApi/appsettings.json
