@@ -69,7 +69,7 @@ namespace ServisTakipApi.Context
             // Şirket ve Kullanıcı İlişkisi
             modelBuilder.Entity<User>()
                 .HasOne(u => u.Company)
-                .WithMany() // (Eğer Company içinde ICollection<User> varsa buraya yazabilirsin, yoksa boş kalmalı)
+                .WithMany(c => c.Users)
                 .HasForeignKey(u => u.CompanyId)
                 .OnDelete(DeleteBehavior.SetNull); // Şirket silinirse, kullanıcının şirket IDsini NULL yap.
 

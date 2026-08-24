@@ -115,7 +115,7 @@ namespace ServisTakipApi.Services
                 return Response<Company>.Fail("Güncelleme sırasında hata oluştu. Lütfen daha sonra tekrar deneyin.");
             }
         }
-        public async Task<Response<User>> CreateDriverAsync(DriverCreateDto driverDto, Guid companyId)
+        public async Task<Response<DriverResponseDto>> CreateDriverAsync(DriverCreateDto driverDto, Guid companyId)
         {
             try
             {
@@ -124,19 +124,19 @@ namespace ServisTakipApi.Services
                 if (company == null || company.Deleted)
                 {
                     _logger.LogWarning("Şoför oluşturma başarısız: Şirket bulunamadı veya silinmiş - CompanyId: {CompanyId}", companyId);
-                    return Response<User>.Fail("Şirket bulunamadı veya silinmiştir.");
+                    return Response<DriverResponseDto>.Fail("Şirket bulunamadı veya silinmiştir.");
                 }
 
                 if (await _userRepository.IsEmailExistsAsync(driverDto.Email))
                 {
                     _logger.LogWarning("Şoför oluşturma başarısız: Email zaten kullanılıyor - {Email}", driverDto.Email);
-                    return Response<User>.Fail("Bu e-posta adresi sistemde zaten mevcut.");
+                    return Response<DriverResponseDto>.Fail("Bu e-posta adresi sistemde zaten mevcut.");
                 }
 
                 if (await _userRepository.IsUsernameExistsAsync(driverDto.Username))
                 {
                     _logger.LogWarning("Şoför oluşturma başarısız: Username zaten kullanılıyor - {Username}", driverDto.Username);
-                    return Response<User>.Fail("Bu kullanıcı adı zaten alınmış.");
+                    return Response<DriverResponseDto>.Fail("Bu kullanıcı adı zaten alınmış.");
                 }
 
                 var hashedPassword = PasswordHasher.HashPassword(driverDto.Password);
@@ -145,51 +145,57 @@ namespace ServisTakipApi.Services
                 var driverUser = DriverMapper.MapToDriverUser(driverDto, hashedPassword, companyId, companyId);
 
                 var addedDriver = await _userRepository.AddUserAsync(driverUser);
-                _logger.LogInformation("Şoför başarıyla eklendi - DriverId: {DriverId}, CompanyId: {CompanyId}, DriverName: {DriverName}", addedDriver.Id, companyId, addedDriver.Name);
+                var driverProfile = await _userRepository.AddDriverProfileAsync(new Driver
+                {
+                    UserId = addedDriver.Id,
+                    PlateNumber = string.Empty,
+                    Capacity = 0
+                });
+                _logger.LogInformation("Şoför başarıyla eklendi - DriverId: {DriverId}, UserId: {UserId}, CompanyId: {CompanyId}, DriverName: {DriverName}", driverProfile.Id, addedDriver.Id, companyId, addedDriver.Name);
 
-                return Response<User>.Successful("Şoför başarıyla eklendi.", addedDriver);
+                return Response<DriverResponseDto>.Successful("Şoför başarıyla eklendi.", ToDriverResponse(driverProfile, addedDriver));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Şoför eklenirken hata oluştu - CompanyId: {CompanyId}", companyId);
-                return Response<User>.Fail("Şoför eklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.");
+                return Response<DriverResponseDto>.Fail("Şoför eklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.");
             }
         }
-        public async Task<Response<User>> UpdateDriverAsync(Guid driverId, Guid companyId, DriverUpdateDto updateDto)
+        public async Task<Response<DriverResponseDto>> UpdateDriverAsync(Guid driverId, Guid companyId, DriverUpdateDto updateDto)
         {
             try
             {
-                // Güvenlik: Şoför var mı ve bu firmaya mı ait?
-                var driver = await _userRepository.GetDriverByIdAndCompanyIdAsync(driverId, companyId);
+                // DriverId is the profile ID; UserId remains the authentication identity.
+                var driver = await _userRepository.GetDriverProfileByIdAndCompanyIdAsync(driverId, companyId);
                 if (driver == null)
                 {
                     _logger.LogWarning("Şoför güncelleme başarısız: Şoför bulunamadı - DriverId: {DriverId}, CompanyId: {CompanyId}", driverId, companyId);
-                    return Response<User>.Fail("Şoför bulunamadı veya bu şoför üzerinde yetkiniz yok.");
+                    return Response<DriverResponseDto>.Fail("Şoför bulunamadı veya bu şoför üzerinde yetkiniz yok.");
                 }
 
-                driver.Name = updateDto.Name;
-                driver.Surname = updateDto.Surname;
-                driver.PhoneNumber = updateDto.PhoneNumber;
+                driver.User.Name = updateDto.Name;
+                driver.User.Surname = updateDto.Surname;
+                driver.User.PhoneNumber = updateDto.PhoneNumber;
 
-                driver.UpdateDate = DateTime.UtcNow;
-                driver.UpdateUser = companyId; // Güncellemeyi yapan firmanın ID'si
+                driver.User.UpdateDate = DateTime.UtcNow;
+                driver.User.UpdateUser = companyId;
 
-                var updatedDriver = await _userRepository.UpdateUserAsync(driver);
+                var updatedDriver = await _userRepository.UpdateUserAsync(driver.User);
                 _logger.LogInformation("Şoför bilgileri güncellendi - DriverId: {DriverId}, UpdatedBy: {UpdatedBy}", driverId, companyId);
 
-                return Response<User>.Successful("Şoför bilgileri güncellendi.", updatedDriver);
+                return Response<DriverResponseDto>.Successful("Şoför bilgileri güncellendi.", ToDriverResponse(driver, updatedDriver));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Şoför güncellemesi sırasında hata oluştu - DriverId: {DriverId}, CompanyId: {CompanyId}", driverId, companyId);
-                return Response<User>.Fail("Güncelleme sırasında hata oluştu. Lütfen daha sonra tekrar deneyin.");
+                return Response<DriverResponseDto>.Fail("Güncelleme sırasında hata oluştu. Lütfen daha sonra tekrar deneyin.");
             }
         }
         public async Task<Response<bool>> DeleteDriverAsync(Guid driverId, Guid companyId)
         {
             try
             {
-                var driver = await _userRepository.GetDriverByIdAndCompanyIdAsync(driverId, companyId);
+                var driver = await _userRepository.GetDriverProfileByIdAndCompanyIdAsync(driverId, companyId);
                 if (driver == null)
                 {
                     _logger.LogWarning("Şoför silme başarısız: Şoför bulunamadı - DriverId: {DriverId}, CompanyId: {CompanyId}", driverId, companyId);
@@ -197,7 +203,7 @@ namespace ServisTakipApi.Services
                 }
 
                 // Var olan SoftDelete metodumuzu kullanıyoruz (actionUserId olarak Firmanın ID'sini veriyoruz)
-                await _userRepository.SoftDeleteUserAsync(driverId, companyId);
+                await _userRepository.SoftDeleteUserAsync(driver.UserId, companyId);
                 _logger.LogInformation("Şoför silindi - DriverId: {DriverId}, DeletedBy: {DeletedBy}", driverId, companyId);
 
                 return Response<bool>.Successful("Şoför sistemden başarıyla silindi.", true);
@@ -207,6 +213,20 @@ namespace ServisTakipApi.Services
                 _logger.LogError(ex, "Şoför silme işlemi sırasında hata oluştu - DriverId: {DriverId}, CompanyId: {CompanyId}", driverId, companyId);
                 return Response<bool>.Fail("Silme işlemi sırasında hata oluştu. Lütfen daha sonra tekrar deneyin.");
             }
+        }
+
+        private static DriverResponseDto ToDriverResponse(Driver driver, User user)
+        {
+            return new DriverResponseDto
+            {
+                DriverId = driver.Id,
+                UserId = user.Id,
+                Name = user.Name,
+                Surname = user.Surname,
+                Email = user.Email,
+                Username = user.Username,
+                PhoneNumber = user.PhoneNumber
+            };
         }
     }
 }

@@ -125,7 +125,6 @@ C:\Code\React_Native\ServisTakipApi\obj\Debug\net8.0\ref\ServisTakipApi.dll
 C:\Code\ReactNative\ServisTakip\ServisTakipApi\bin\Debug\net8.0\appsettings.Development.json
 C:\Code\ReactNative\ServisTakip\ServisTakipApi\bin\Debug\net8.0\appsettings.json
 C:\Code\ReactNative\ServisTakip\ServisTakipApi\bin\Debug\net8.0\ServisTakipApi.staticwebassets.endpoints.json
-C:\Code\ReactNative\ServisTakip\ServisTakipApi\bin\Debug\net8.0\ServisTakipApi.exe
 C:\Code\ReactNative\ServisTakip\ServisTakipApi\bin\Debug\net8.0\ServisTakipApi.deps.json
 C:\Code\ReactNative\ServisTakip\ServisTakipApi\bin\Debug\net8.0\ServisTakipApi.runtimeconfig.json
 C:\Code\ReactNative\ServisTakip\ServisTakipApi\bin\Debug\net8.0\ServisTakipApi.dll
@@ -246,3 +245,4 @@ C:\Code\ReactNative\ServisTakip\ServisTakipApi\obj\Debug\net8.0\refint\ServisTak
 C:\Code\ReactNative\ServisTakip\ServisTakipApi\obj\Debug\net8.0\ServisTakipApi.pdb
 C:\Code\ReactNative\ServisTakip\ServisTakipApi\obj\Debug\net8.0\ServisTakipApi.genruntimeconfig.cache
 C:\Code\ReactNative\ServisTakip\ServisTakipApi\obj\Debug\net8.0\ref\ServisTakipApi.dll
+C:\Code\ReactNative\ServisTakip\ServisTakipApi\bin\Debug\net8.0\ServisTakipApi.exe

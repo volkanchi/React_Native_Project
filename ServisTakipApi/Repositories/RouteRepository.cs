@@ -33,9 +33,9 @@ namespace ServisTakipApi.Repositories
             if (!vehicleIsValid)
                 return "Seçilen araç bulunamadı, firmaya ait değil veya pasif durumda.";
 
-            var driverIsValid = await _context.Users.AnyAsync(u =>
-                u.Id == driverId && u.CompanyId == companyId &&
-                u.Role == UserRole.Sofor && !u.Deleted);
+            var driverIsValid = await _context.Drivers.AnyAsync(d =>
+                d.Id == driverId && d.User.CompanyId == companyId &&
+                d.User.Role == UserRole.Sofor && !d.User.Deleted);
             if (!driverIsValid)
                 return "Seçilen şoför bulunamadı, firmaya ait değil veya pasif durumda.";
 

@@ -31,6 +31,13 @@ namespace ServisTakipApi.Repositories
             await _context.SaveChangesAsync();
             return user;
         }
+
+        public async Task<Driver> AddDriverProfileAsync(Driver driver)
+        {
+            await _context.Drivers.AddAsync(driver);
+            await _context.SaveChangesAsync();
+            return driver;
+        }
         public async Task<User?> GetUserByEmailAsync(string email)
         {
             return await _context.Users.FirstOrDefaultAsync(u => u.Email == email && !u.Deleted);
@@ -67,14 +74,15 @@ namespace ServisTakipApi.Repositories
 
             return true;
         }
-        public async Task<User?> GetDriverByIdAndCompanyIdAsync(Guid driverId, Guid companyId)
+        public async Task<Driver?> GetDriverProfileByIdAndCompanyIdAsync(Guid driverId, Guid companyId)
         {
-            // Kullanıcı hem silinmemiş olmalı, hem istenen ID'ye sahip olmalı, hem de bu firmaya ait bir "Şoför" olmalı
-            return await _context.Users.FirstOrDefaultAsync(u =>
-                u.Id == driverId &&
-                u.CompanyId == companyId &&
-                u.Role == UserRole.Sofor &&
-                !u.Deleted);
+            return await _context.Drivers
+                .Include(d => d.User)
+                .FirstOrDefaultAsync(d =>
+                    d.Id == driverId &&
+                    d.User.CompanyId == companyId &&
+                    d.User.Role == UserRole.Sofor &&
+                    !d.User.Deleted);
         }
     }
 }

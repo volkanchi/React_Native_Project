@@ -20,9 +20,9 @@ namespace ServisTakipApi.Models
         public Guid VehicleId { get; set; } 
         public Vehicle? Vehicle { get; set; }
 
-        // İlişki 3: Bu rotada Şoför kim? (User tablosundan bağlanıyor)
+        // İlişki 3: Bu rotada Şoför kim?
         public Guid DriverId { get; set; } 
-        public User? Driver { get; set; }
+        public Driver? Driver { get; set; }
 
         // İlişki 4: bire çok ilişki, bir rotanın birden fazla yolcusu olduğundan birden çok pin tutar 
         public ICollection<RouteStop> Stops { get; set; } = new List<RouteStop>();

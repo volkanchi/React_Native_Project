@@ -8,11 +8,12 @@ namespace ServisTakipApi.Interfaces
         Task<bool> IsEmailExistsAsync(string email);
         Task<bool> IsUsernameExistsAsync(string username);
         Task<User> AddUserAsync(User user);
+        Task<Driver> AddDriverProfileAsync(Driver driver);
         Task<User?> GetUserByEmailAsync(string email);
         Task<User?> GetUserByUsernameAsync(string username);
         Task<User?> GetUserByIdAsync(Guid userId);
         Task<User> UpdateUserAsync(User user);
         Task<bool> SoftDeleteUserAsync(Guid userId, Guid? actionUserId); // actionUserId = Silen kişinin ID'si
-        Task<User?> GetDriverByIdAndCompanyIdAsync(Guid driverId, Guid companyId);
+        Task<Driver?> GetDriverProfileByIdAndCompanyIdAsync(Guid driverId, Guid companyId);
     }
 }

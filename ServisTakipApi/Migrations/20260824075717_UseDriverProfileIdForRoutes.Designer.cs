@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using ServisTakipApi.Context;
 namespace ServisTakipApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260824075717_UseDriverProfileIdForRoutes")]
+    partial class UseDriverProfileIdForRoutes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -189,6 +192,9 @@ namespace ServisTakipApi.Migrations
                     b.Property<Guid?>("CompanyId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("CompanyId1")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("CreateDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -234,6 +240,8 @@ namespace ServisTakipApi.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CompanyId");
+
+                    b.HasIndex("CompanyId1");
 
                     b.ToTable("Users");
                 });
@@ -340,9 +348,13 @@ namespace ServisTakipApi.Migrations
             modelBuilder.Entity("ServisTakipApi.Models.User", b =>
                 {
                     b.HasOne("ServisTakipApi.Models.Company", "Company")
-                        .WithMany("Users")
+                        .WithMany()
                         .HasForeignKey("CompanyId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ServisTakipApi.Models.Company", null)
+                        .WithMany("Users")
+                        .HasForeignKey("CompanyId1");
 
                     b.Navigation("Company");
                 });

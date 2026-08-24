@@ -47,7 +47,7 @@ namespace ServisTakipApi.Repositories
                     profile => profile.UserId,
                     user => user.Id,
                     (profile, user) => new { Profile = profile, User = user })
-                .Where(x => x.Profile.UserId == driverId &&
+                .Where(x => x.Profile.Id == driverId &&
                             x.User.CompanyId == companyId &&
                             x.User.Role == UserRole.Sofor &&
                             !x.User.Deleted)

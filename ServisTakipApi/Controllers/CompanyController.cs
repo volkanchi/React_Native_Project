@@ -12,7 +12,7 @@ namespace ServisTakipApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Firma")]
+    [Authorize(Roles = "Firma,Admin")]
     public class CompanyController : ControllerBase
     {
         private readonly ICompanyService _companyService;
@@ -70,7 +70,7 @@ namespace ServisTakipApi.Controllers
                 if (string.IsNullOrEmpty(companyIdClaim))
                 {
                     // Eğer token'ın içinde bu bilgi yoksa, bu hesap hatalı bir Firma hesabıdır
-                    return Unauthorized(Response<User>.Fail("Firma kimlik bilgisi doğrulanamadı. Lütfen tekrar giriş yapın."));
+                    return Unauthorized(Response<DriverResponseDto>.Fail("Firma kimlik bilgisi doğrulanamadı. Lütfen tekrar giriş yapın."));
                 }
 
                 // Metin (string) olarak gelen ID'yi Guid formatına çeviriyoruz
@@ -86,7 +86,7 @@ namespace ServisTakipApi.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(Response<User>.Fail(ex.Message));
+                return BadRequest(Response<DriverResponseDto>.Fail(ex.Message));
             }
         }
         [HttpPut("update-driver/{driverId}")]
@@ -100,7 +100,7 @@ namespace ServisTakipApi.Controllers
                 var companyIdClaim = User.Claims.FirstOrDefault(c => c.Type == "CompanyId")?.Value;
 
                 if (string.IsNullOrEmpty(companyIdClaim))
-                    return Unauthorized(Response<User>.Fail("Firma kimlik bilgisi doğrulanamadı. Lütfen tekrar giriş yapın."));
+                    return Unauthorized(Response<DriverResponseDto>.Fail("Firma kimlik bilgisi doğrulanamadı. Lütfen tekrar giriş yapın."));
 
                 Guid companyId = Guid.Parse(companyIdClaim);
 
@@ -114,7 +114,7 @@ namespace ServisTakipApi.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(Response<User>.Fail(ex.Message));
+                return BadRequest(Response<DriverResponseDto>.Fail(ex.Message));
             }
         }
 
