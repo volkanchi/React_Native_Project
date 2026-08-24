@@ -11,33 +11,18 @@ using System.Threading.Tasks;
 
 namespace ServisTakipApi.Services
 {
-    /// <summary>
-    /// Şirket ve şoför yönetimi için servis sınıfı
-    /// </summary>
     public class CompanyService : ICompanyService
     {
         private readonly ICompanyRepository _companyRepository;
         private readonly IUserRepository _userRepository;
         private readonly ILogger<CompanyService> _logger;
 
-        /// <summary>
-        /// CompanyService constructor
-        /// </summary>
-        /// <param name="companyRepository">Şirket repository</param>
-        /// <param name="userRepository">Kullanıcı repository</param>
-        /// <param name="logger">Logger instance</param>
         public CompanyService(ICompanyRepository companyRepository, IUserRepository userRepository, ILogger<CompanyService> logger)
         {
             _companyRepository = companyRepository;
             _userRepository = userRepository;
             _logger = logger;
         }
-
-        /// <summary>
-        /// Yeni bir şirket kaydı oluşturur
-        /// </summary>
-        /// <param name="companyDto">Şirket oluşturma verisi</param>
-        /// <returns>Oluşturulan şirket modeli</returns>
         public async Task<Response<Company>> RegisterCompanyAsync(CompanyCreateDto companyDto)
         {
             try
@@ -130,13 +115,6 @@ namespace ServisTakipApi.Services
                 return Response<Company>.Fail("Güncelleme sırasında hata oluştu. Lütfen daha sonra tekrar deneyin.");
             }
         }
-
-        /// <summary>
-        /// Firmaya yeni bir şoför ekler
-        /// </summary>
-        /// <param name="driverDto">Şoför oluşturma verisi</param>
-        /// <param name="companyId">Şoförün ait olacağı firma ID'si</param>
-        /// <returns>Oluşturulan şoför modeli</returns>
         public async Task<Response<User>> CreateDriverAsync(DriverCreateDto driverDto, Guid companyId)
         {
             try
@@ -177,14 +155,6 @@ namespace ServisTakipApi.Services
                 return Response<User>.Fail("Şoför eklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.");
             }
         }
-
-        /// <summary>
-        /// Şoför bilgilerini günceller
-        /// </summary>
-        /// <param name="driverId">Güncellenecek şoförün ID'si</param>
-        /// <param name="companyId">Şoförün ait olduğu firma ID'si</param>
-        /// <param name="updateDto">Güncellenecek veriler</param>
-        /// <returns>Güncellenmiş şoför modeli</returns>
         public async Task<Response<User>> UpdateDriverAsync(Guid driverId, Guid companyId, DriverUpdateDto updateDto)
         {
             try
@@ -215,13 +185,6 @@ namespace ServisTakipApi.Services
                 return Response<User>.Fail("Güncelleme sırasında hata oluştu. Lütfen daha sonra tekrar deneyin.");
             }
         }
-
-        /// <summary>
-        /// Şoförü sistemden siler (soft delete)
-        /// </summary>
-        /// <param name="driverId">Silinecek şoförün ID'si</param>
-        /// <param name="companyId">Şoförün ait olduğu firma ID'si</param>
-        /// <returns>Silme işleminin sonucu</returns>
         public async Task<Response<bool>> DeleteDriverAsync(Guid driverId, Guid companyId)
         {
             try
