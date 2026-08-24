@@ -43,6 +43,20 @@ namespace ServisTakipApi.Controllers
             }
         }
 
+        [HttpPut("update")]
+        public async Task<IActionResult> UpdateCompany([FromBody] CompanyUpdateDto companyDto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var companyIdClaim = User.FindFirst("CompanyId")?.Value;
+            if (!Guid.TryParse(companyIdClaim, out var companyId))
+                return Unauthorized(Response<bool>.Fail("Firma kimlik bilgisi doğrulanamadı."));
+
+            var response = await _companyService.UpdateCompanyAsync(companyId, companyDto);
+            return response.Success ? Ok(response) : BadRequest(response);
+        }
+
         [HttpPost("add-driver")]
         public async Task<IActionResult> AddDriver([FromBody] DriverCreateDto driverDto)
         {

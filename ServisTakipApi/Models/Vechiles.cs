@@ -14,5 +14,8 @@ namespace ServisTakipApi.Models
         // Bu araç hangi firmaya ait İlişkisi
         public Guid CompanyId { get; set; }
         public Company? Company { get; set; }
+        
+        // araç sürücü ilişkisi
+        public ICollection<Driver> Drivers { get; set; } = new List<Driver>();
     }
 }

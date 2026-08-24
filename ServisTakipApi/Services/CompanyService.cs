@@ -84,6 +84,53 @@ namespace ServisTakipApi.Services
             }
         }
 
+        public async Task<Response<Company>> UpdateCompanyAsync(Guid companyId, CompanyUpdateDto companyDto)
+        {
+            try
+            {
+                var company = await _companyRepository.GetCompanyByIdAsync(companyId);
+                if (company == null)
+                    return Response<Company>.Fail("Şirket bulunamadı.");
+
+                var admin = await _userRepository.GetUserByUsernameAsync(company.Username);
+                var email = companyDto.Email.Trim();
+                var username = companyDto.Username.Trim();
+
+                if (await _companyRepository.IsEmailExistsExceptAsync(email, companyId))
+                    return Response<Company>.Fail("Bu e-posta adresi zaten kullanılıyor.");
+
+                if (await _companyRepository.IsUsernameExistsExceptAsync(username, companyId) ||
+                    (username != company.Username && await _userRepository.IsUsernameExistsAsync(username)))
+                    return Response<Company>.Fail("Bu kullanıcı adı zaten kullanılıyor.");
+
+                company.CompanyName = companyDto.CompanyName.Trim();
+                company.Address = companyDto.Address.Trim();
+                company.PhoneNumber = companyDto.PhoneNumber.Trim();
+                company.Email = email;
+                company.Username = username;
+                company.TaxNumber = companyDto.TaxNumber?.Trim();
+
+                if (admin != null && admin.CompanyId == companyId && admin.Role == UserRole.Firma)
+                {
+                    admin.Name = company.CompanyName;
+                    admin.Email = company.Email;
+                    admin.Username = company.Username;
+                    admin.PhoneNumber = company.PhoneNumber;
+                    admin.UpdateDate = DateTime.UtcNow;
+                    admin.UpdateUser = companyId;
+                    await _userRepository.UpdateUserAsync(admin);
+                }
+
+                var updatedCompany = await _companyRepository.UpdateCompanyAsync(company);
+                return Response<Company>.Successful("Şirket bilgileri güncellendi.", updatedCompany);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Şirket güncellenirken hata oluştu - CompanyId: {CompanyId}", companyId);
+                return Response<Company>.Fail("Güncelleme sırasında hata oluştu. Lütfen daha sonra tekrar deneyin.");
+            }
+        }
+
         /// <summary>
         /// Firmaya yeni bir şoför ekler
         /// </summary>

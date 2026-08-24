@@ -31,5 +31,8 @@ namespace ServisTakipApi.Models
         // sirket 
         public Guid? CompanyId { get; set; }
         public Company? Company { get; set; }
+
+        // SÜRÜCÜ PROFİLİ
+        public Driver? DriverProfile { get; set; }
     }
 }

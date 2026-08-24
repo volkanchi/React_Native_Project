@@ -25,9 +25,26 @@ namespace ServisTakipApi.Repositories
             return await _context.Companies.AnyAsync(c => c.Username == username && !c.Deleted);
         }
 
+        public async Task<bool> IsEmailExistsExceptAsync(string email, Guid companyId)
+        {
+            return await _context.Companies.AnyAsync(c => c.Email == email && c.Id != companyId && !c.Deleted);
+        }
+
+        public async Task<bool> IsUsernameExistsExceptAsync(string username, Guid companyId)
+        {
+            return await _context.Companies.AnyAsync(c => c.Username == username && c.Id != companyId && !c.Deleted);
+        }
+
         public async Task<Company> AddCompanyAsync(Company company)
         {
             await _context.Companies.AddAsync(company);
+            await _context.SaveChangesAsync();
+            return company;
+        }
+
+        public async Task<Company> UpdateCompanyAsync(Company company)
+        {
+            _context.Companies.Update(company);
             await _context.SaveChangesAsync();
             return company;
         }

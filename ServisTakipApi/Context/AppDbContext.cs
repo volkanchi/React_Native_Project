@@ -10,7 +10,7 @@ namespace ServisTakipApi.Context
         }
         public DbSet<User> Users { get; set; }
         public DbSet<Company> Companies { get; set; }
-
+        public DbSet<Driver> Drivers { get; set; }
         public DbSet<Vehicle> Vehicles { get; set; }
         public DbSet<Models.Route> Routes { get; set; }
         public DbSet<RouteStop> RouteStops { get; set; }
@@ -59,11 +59,38 @@ namespace ServisTakipApi.Context
                 .WithMany()
                 .HasForeignKey(rs => rs.PassengerId)
                 .OnDelete(DeleteBehavior.Restrict);
-                
+
             // RouteCode kolonunu benzersiz (Unique) hale getiriyoruz
             modelBuilder.Entity<Models.Route>()
                 .HasIndex(r => r.RouteCode)
                 .IsUnique();
+
+
+            // Şirket ve Kullanıcı İlişkisi
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.Company)
+                .WithMany() // (Eğer Company içinde ICollection<User> varsa buraya yazabilirsin, yoksa boş kalmalı)
+                .HasForeignKey(u => u.CompanyId)
+                .OnDelete(DeleteBehavior.SetNull); // Şirket silinirse, kullanıcının şirket IDsini NULL yap.
+
+            // User ile Driver arasındaki Bire-Bir (One-to-One) ilişki
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.DriverProfile)
+                .WithOne(d => d.User)
+                .HasForeignKey<Driver>(d => d.UserId)
+                .OnDelete(DeleteBehavior.Cascade); // Kullanıcı silinirse, sürücü profili de silinsin.    
+
+            modelBuilder.Entity<Vehicle>()
+                .HasIndex(v => new { v.CompanyId, v.PlateNumber })
+                .IsUnique()
+                .HasFilter("\"Deleted\" = false");
+
+            // Bir aracı vardiyalı olarak birden fazla sürücü kullanabilir
+            modelBuilder.Entity<Driver>()
+                .HasOne(d => d.Vehicle)
+                .WithMany(v => v.Drivers)
+                .HasForeignKey(d => d.VehicleId)
+                .OnDelete(DeleteBehavior.SetNull); // Araç silinirse, sürücünün atamasını boşa (NULL) çıkar
         }
     }
 }

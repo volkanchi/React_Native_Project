@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using ServisTakipApi.Context;
 namespace ServisTakipApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260824063527_AddDriverProfileAndFixCompanyFK")]
+    partial class AddDriverProfileAndFixCompanyFK
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -87,15 +90,10 @@ namespace ServisTakipApi.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("VehicleId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("UserId")
                         .IsUnique();
-
-                    b.HasIndex("VehicleId");
 
                     b.ToTable("Drivers");
                 });
@@ -271,9 +269,7 @@ namespace ServisTakipApi.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CompanyId", "PlateNumber")
-                        .IsUnique()
-                        .HasFilter("\"Deleted\" = false");
+                    b.HasIndex("CompanyId");
 
                     b.ToTable("Vehicles");
                 });
@@ -286,14 +282,7 @@ namespace ServisTakipApi.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ServisTakipApi.Models.Vehicle", "Vehicle")
-                        .WithMany("Drivers")
-                        .HasForeignKey("VehicleId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("User");
-
-                    b.Navigation("Vehicle");
                 });
 
             modelBuilder.Entity("ServisTakipApi.Models.Route", b =>
@@ -380,11 +369,6 @@ namespace ServisTakipApi.Migrations
             modelBuilder.Entity("ServisTakipApi.Models.User", b =>
                 {
                     b.Navigation("DriverProfile");
-                });
-
-            modelBuilder.Entity("ServisTakipApi.Models.Vehicle", b =>
-                {
-                    b.Navigation("Drivers");
                 });
 #pragma warning restore 612, 618
         }
