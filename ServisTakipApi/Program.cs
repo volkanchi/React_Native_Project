@@ -38,7 +38,26 @@ builder.Services.AddAuthentication(options =>
 
         ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
         ValidAudience = builder.Configuration["JwtSettings:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!)),
+        ClockSkew = TimeSpan.Zero // Token süresi bittiği an tolerans tanımadan yetkiyi kes
+    };
+
+    // 3. SignalR İçin Token Yakalama Olayı (Event)
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+
+            // İstek SignalR Hub yoluna geliyorsa token'ı query string'den oku
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/location"))
+            {
+                context.Token = accessToken;
+            }
+
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -125,7 +144,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 // 4. SignalR Hub Rota Eşlemesi
-app.MapHub<LocationHub>("/locationHub");
+app.MapHub<LocationHub>("/hubs/location");
 
 // --- Otomatik Veritabanı Güncelleme Bloğu (Windows Güvenliği Engelini Aşmak İçin) ---
 using (var scope = app.Services.CreateScope())
@@ -134,7 +153,7 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<AppDbContext>();
-        context.Database.Migrate(); 
+        context.Database.Migrate();
         Console.WriteLine("Veritabanı başarıyla güncellendi! Bekleyen tüm Migration'lar uygulandı.");
     }
     catch (Exception ex)

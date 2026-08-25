@@ -1,29 +1,31 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using System.Threading.Tasks;
+using ServisTakipApi.DTOs.DriverDTOs;
 
 namespace ServisTakipApi.Hubs
 {
-    // Hub sınıfından miras alıyoruz, bu sayede canlı bağlantı yetenekleri kazanıyor
     public class LocationHub : Hub
     {
-        // Şoför, 5 saniyede bir bu metodu tetikleyecek
-        // routeCode: Hangi servisin konumu? (Örn: 34ABC123-8472)
-        public async Task SendVehicleLocation(string routeCode, double latitude, double longitude)
+        // 1. Yolcu veya Veli: Belirli bir servisin/rotanın canlı yayınına katılır
+        public async Task JoinRouteGroup(string routeId)
         {
-            // Sadece o routeCode adlı odaya (gruba) kayıtlı yolculara "ReceiveLocationUpdate" mesajını gönder
-            await Clients.Group(routeCode).SendAsync("ReceiveLocationUpdate", latitude, longitude);
+            await Groups.AddToGroupAsync(Context.ConnectionId, routeId);
         }
 
-        // Yolcu uygulamayı açıp haritaya girdiğinde, kendi servisinin canlı odasına katılır
-        public async Task JoinRouteGroup(string routeCode)
+        // 2. Yolcu: Takibi bıraktığında gruptan ayrılır
+        public async Task LeaveRouteGroup(string routeId)
         {
-            await Groups.AddToGroupAsync(Context.ConnectionId, routeCode);
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, routeId);
         }
 
-        // Yolcu uygulamayı kapattığında odadan (gruptan) ayrılır
-        public async Task LeaveRouteGroup(string routeCode)
+        // 3. Sürücü: Anlık konumunu basar (Sadece Driver rolü yetkilidir)
+        [Authorize(Roles = "Driver")]
+        public async Task SendLocationUpdate(DriverLocationDto locationDto)
         {
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, routeCode);
+            // İlgili rotayı dinleyen tüm yolculara konumu anlık fırlat
+            await Clients.Group(locationDto.RouteId.ToString())
+                .SendAsync("ReceiveLocationUpdate", locationDto);
         }
     }
 }
