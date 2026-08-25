@@ -132,11 +132,9 @@ var app = builder.Build();
 // Global exception handling middleware
 app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseCors("AllowMobile");
 app.UseAuthentication();
