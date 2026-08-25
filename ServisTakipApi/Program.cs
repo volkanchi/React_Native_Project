@@ -145,20 +145,4 @@ app.MapControllers();
 
 // 4. SignalR Hub Rota Eşlemesi
 app.MapHub<LocationHub>("/hubs/location");
-
-// --- Otomatik Veritabanı Güncelleme Bloğu (Windows Güvenliği Engelini Aşmak İçin) ---
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    try
-    {
-        var context = services.GetRequiredService<AppDbContext>();
-        context.Database.Migrate();
-        Console.WriteLine("Veritabanı başarıyla güncellendi! Bekleyen tüm Migration'lar uygulandı.");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine("Veritabanı güncellenirken hata oluştu: " + ex.Message);
-    }
-}
 app.Run();
