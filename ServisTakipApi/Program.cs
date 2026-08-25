@@ -139,7 +139,7 @@ app.UseSwaggerUI();
 app.UseCors("AllowMobile");
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapControllers();
+app.MapControllers(); app.MapGet("/", () => Results.Ok(new { status = "Healthy", timestamp = DateTime.UtcNow }));
 
 // 4. SignalR Hub Rota Eşlemesi
 app.MapHub<LocationHub>("/hubs/location");
