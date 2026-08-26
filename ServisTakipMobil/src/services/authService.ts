@@ -24,7 +24,7 @@ export const authService = {
   },
 
   // POST: /api/User/login
-  // Not: Backend'de login başarılı olunca data içinde token geliyor
+  // Not: Backend'de login başarılı olunca data içinde token döndüğünü varsayıyoruz (string).
   login: async (payload: UserLoginDto): Promise<ApiResponse<string>> => {
     const response = await fetch(`${API_BASE_URL}/api/User/login`, {
       method: 'POST',
