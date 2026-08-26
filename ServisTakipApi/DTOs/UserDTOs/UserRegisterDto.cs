@@ -3,11 +3,7 @@ using ServisTakipApi.Models;
 
 namespace ServisTakipApi.DTOs.UserDTOs
 {
-    /// <summary>
-    /// Bu sınıf sadece dışarıdan gelen kayıt isteklerini (request) karşılamak içindir.
-    /// İçinde ID veya Oluşturulma Tarihi gibi kullanıcının doldurmayacağı bilgiler yer almaz.
-    /// Data Transfer Object (DTO) - Veri Transfer Nesnesi
-    /// </summary>
+  
     public class UserRegisterDto
     {
         [Required(ErrorMessage = "Ad gereklidir.")]
