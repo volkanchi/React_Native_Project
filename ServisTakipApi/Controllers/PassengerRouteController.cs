@@ -2,13 +2,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ServisTakipApi.DTOs.RouteDTOs;
 using ServisTakipApi.Interfaces;
+using System.Security.Claims;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace ServisTakipApi.Controllers
 {
-    [Route("api/Route")]
+    [Route("api/[controller]")]
     [ApiController]
     [Authorize(Roles = "Yolcu")]
     public class PassengerRouteController : ControllerBase
@@ -49,7 +50,7 @@ namespace ServisTakipApi.Controllers
 
         private bool TryGetPassengerId(out Guid passengerId)
         {
-            var claim = User.Claims.FirstOrDefault(c => c.Type == "UserId")?.Value;
+            var claim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
             return Guid.TryParse(claim, out passengerId);
         }
     }
