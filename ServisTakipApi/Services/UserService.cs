@@ -61,14 +61,20 @@ namespace ServisTakipApi.Services
                     return Response<string>.Fail("E-posta adresi veya şifre hatalı.");
                 }
 
-                // 2. Şifreyi BCrypt ile doğrula (PasswordHasher sınıfımızı kullanıyoruz)
+                // 2. PasswordHash kontrolü (null olması durumunda)
+                if (string.IsNullOrEmpty(user.PasswordHash))
+                {
+                    return Response<string>.Fail("E-posta adresi veya şifre hatalı.");
+                }
+
+                // 3. Şifreyi BCrypt ile doğrula (PasswordHasher sınıfımızı kullanıyoruz)
                 bool isPasswordValid = BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash);
                 if (!isPasswordValid)
                 {
                     return Response<string>.Fail("E-posta adresi veya şifre hatalı."); // Güvenlik: Hangisinin hatalı olduğunu söylemiyoruz
                 }
 
-                // 3. Şifre doğruysa Token üret
+                // 4. Şifre doğruysa Token üret
                 var token = _tokenService.GenerateToken(user);
 
                 return Response<string>.Successful("Giriş başarılı.", token);
