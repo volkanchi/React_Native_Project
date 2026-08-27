@@ -16,7 +16,7 @@ const getAuthHeaders = (token: string) => {
 export const vehicleService = {
   // POST: /api/Vehicles/add-vehicle
   createVehicle: async (payload: CreateVehicleDto, token: string): Promise<ApiResponse<VehicleResponseDto>> => {
-    const response = await fetch(`${API_BASE_URL}/api/Vehicles/add-vehicle`, {
+    const response = await fetch(`${API_BASE_URL}/Vehicles/add-vehicle`, {
       method: 'POST',
       headers: getAuthHeaders(token),
       body: JSON.stringify(payload),
@@ -26,7 +26,7 @@ export const vehicleService = {
 
   // GET: /api/Vehicles
   getByCompany: async (token: string): Promise<ApiResponse<VehicleResponseDto[]>> => {
-    const response = await fetch(`${API_BASE_URL}/api/Vehicles`, {
+    const response = await fetch(`${API_BASE_URL}/Vehicles`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}` 
@@ -37,7 +37,7 @@ export const vehicleService = {
 
   // PUT: /api/Vehicles/assign-driver
   assignDriver: async (payload: AssignVehicleToDriverDto, token: string): Promise<ApiResponse<boolean>> => {
-    const response = await fetch(`${API_BASE_URL}/api/Vehicles/assign-driver`, {
+    const response = await fetch(`${API_BASE_URL}/Vehicles/assign-driver`, {
       method: 'PUT',
       headers: getAuthHeaders(token),
       body: JSON.stringify(payload),

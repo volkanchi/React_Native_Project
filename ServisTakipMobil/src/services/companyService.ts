@@ -21,7 +21,7 @@ const getAuthHeaders = (token: string) => {
 export const companyService = {
   // POST: /api/Company/register
   register: async (payload: CompanyCreateDto, token: string): Promise<ApiResponse<CompanyResponseDto>> => {
-    const response = await fetch(`${API_BASE_URL}/api/Company/register`, {
+    const response = await fetch(`${API_BASE_URL}/Company/register`, {
       method: 'POST',
       headers: getAuthHeaders(token),
       body: JSON.stringify(payload),
@@ -31,7 +31,7 @@ export const companyService = {
 
   // PUT: /api/Company/update
   update: async (payload: CompanyUpdateDto, token: string): Promise<ApiResponse<boolean>> => {
-    const response = await fetch(`${API_BASE_URL}/api/Company/update`, {
+    const response = await fetch(`${API_BASE_URL}/Company/update`, {
       method: 'PUT',
       headers: getAuthHeaders(token),
       body: JSON.stringify(payload),
@@ -41,7 +41,7 @@ export const companyService = {
 
   // POST: /api/Company/add-driver
   addDriver: async (payload: DriverCreateDto, token: string): Promise<ApiResponse<DriverResponseDto>> => {
-    const response = await fetch(`${API_BASE_URL}/api/Company/add-driver`, {
+    const response = await fetch(`${API_BASE_URL}/Company/add-driver`, {
       method: 'POST',
       headers: getAuthHeaders(token),
       body: JSON.stringify(payload),
@@ -51,7 +51,7 @@ export const companyService = {
 
   // PUT: /api/Company/update-driver/{driverId}
   updateDriver: async (driverId: string, payload: DriverUpdateDto, token: string): Promise<ApiResponse<DriverResponseDto>> => {
-    const response = await fetch(`${API_BASE_URL}/api/Company/update-driver/${driverId}`, {
+    const response = await fetch(`${API_BASE_URL}/Company/update-driver/${driverId}`, {
       method: 'PUT',
       headers: getAuthHeaders(token),
       body: JSON.stringify(payload),
@@ -61,7 +61,7 @@ export const companyService = {
 
   // DELETE: /api/Company/delete-driver/{driverId}
   deleteDriver: async (driverId: string, token: string): Promise<ApiResponse<boolean>> => {
-    const response = await fetch(`${API_BASE_URL}/api/Company/delete-driver/${driverId}`, {
+    const response = await fetch(`${API_BASE_URL}/Company/delete-driver/${driverId}`, {
       method: 'DELETE',
       headers: getAuthHeaders(token)
     });

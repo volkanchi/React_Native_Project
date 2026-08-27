@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ServisTakipApi")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3eaf37c55ce464386924ff5332712ff62d087d44")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f1457f570493df193d067682539b9fb86d0df4b7")]
 [assembly: System.Reflection.AssemblyProductAttribute("ServisTakipApi")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ServisTakipApi")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

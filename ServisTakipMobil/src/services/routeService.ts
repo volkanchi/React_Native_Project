@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../constants/config';
+import { API_BASE_URL } from '../constants/config'; 
 
 export interface JoinRoutePayload {
   routeCode: string;
@@ -9,39 +9,48 @@ export interface JoinRoutePayload {
 }
 
 export const routeService = {
-  // Rotaya katılma isteği atan fonksiyon
   joinRoute: async (payload: JoinRoutePayload, token: string) => {
     try {
       const response = await fetch(`${API_BASE_URL}/PassengerRoute/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Backend'in bizi tanıması için JWT'yi Authorization başlığına ekliyoruz
           'Authorization': `Bearer ${token}` 
         },
         body: JSON.stringify(payload)
       });
 
-      // Backend'den gelen JSON yanıtını okuyoruz (DTO'ya uygun şekilde)
-      const data = await response.json();
+      // 1. DÜZELTME: Yanıtı önce metin olarak okuyoruz ki uygulama çökmesin
+      const responseText = await response.text();
+      let data: any = {};
 
+      // 2. Metin boş değilse JSON'a çevir (Örn: 401 Unauthorized dönmüşse metin boştur)
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          console.log("JSON dönüştürülemedi. Gelen yanıt:", responseText);
+        }
+      }
+
+      // 3. Status 200 (OK) değilse ekrana çökmeden hata uyarısı ver
       if (!response.ok) {
         return { 
           success: false, 
-          message: data.message || 'Rotaya katılırken bir hata oluştu.' 
+          message: data.message || `Yetkisiz işlem veya Hata (Status: ${response.status})` 
         };
       }
 
       return { 
         success: true, 
-        data: data 
+        data: data.data || data 
       };
       
     } catch (error) {
       console.error('Route Service Join Error:', error);
       return { 
         success: false, 
-        message: 'Sunucu ile iletişim kurulamadı. Lütfen internet bağlantınızı kontrol edin.' 
+        message: 'Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.' 
       };
     }
   }

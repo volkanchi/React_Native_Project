@@ -1,6 +1,5 @@
 import * as signalR from "@microsoft/signalr";
-
-const HUB_URL = "https://servis-takip-api-anir.onrender.com/hubs/location";
+import { SIGNALR_HUB_URL } from '../constants/config';
 
 let connection: signalR.HubConnection | null = null;
 
@@ -10,7 +9,7 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
   }
 
   connection = new signalR.HubConnectionBuilder()
-    .withUrl(HUB_URL, {
+    .withUrl(SIGNALR_HUB_URL, {
       accessTokenFactory: () => token,
       transport:
         signalR.HttpTransportType.WebSockets |
