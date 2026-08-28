@@ -5,7 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AuthScreen from '../screens/AuthScreen';
 import PassengerMainScreen from '../screens/PassengerMainScreen';
 import LiveTrackingScreen from '../screens/LiveTrackingScreen';
-import { getUserRole } from '../services/storageService';
+import { getUserRole, storageService  } from '../services/storageService';
 
 type RootStackParamList = {
   Login: undefined;
@@ -39,6 +39,10 @@ export default function AppNavigator() {
     checkUserStatus();
   };
 
+  const handleLogout = async () => {
+  await storageService.removeToken(); // token'ı cihazdan tamamen sil
+  checkUserStatus(); // Sonra durumu güncelle token silindiği için AuthStack'e düşecek
+  };
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -48,7 +52,7 @@ export default function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         
         {!userRole ? (
@@ -58,7 +62,7 @@ export default function AppNavigator() {
         ) : 
         userRole === 'Driver' ? (
           <Stack.Screen name="DriverMain">
-            {() => <DriverPlaceholder onLogout={handleAuthChange} />}
+            {() => <DriverPlaceholder onLogout={handleLogout} />}
           </Stack.Screen>
         ) : 
         (
@@ -70,7 +74,7 @@ export default function AppNavigator() {
                   onNavigateToLiveTracking={(routeId) =>
                     navigation.navigate('LiveTracking', { routeId })
                   }
-                  onLogout={handleAuthChange}
+                  onLogout={handleLogout}
                 />
               )}
             </Stack.Screen>
@@ -79,7 +83,6 @@ export default function AppNavigator() {
         )}
 
       </Stack.Navigator>
-    </NavigationContainer>
   );
 }
 

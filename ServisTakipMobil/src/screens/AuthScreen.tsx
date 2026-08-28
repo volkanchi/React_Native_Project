@@ -1,254 +1,291 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-} from "react-native";
-import { authService } from "../services/authService";
-import { storageService } from "../services/storageService";
+  ActivityIndicator,
+} from 'react-native';
+import { Ionicons, Feather } from '@expo/vector-icons'; 
 
 interface AuthScreenProps {
-  onLoginSuccess: (token: string, user?: any) => void;
+  onLoginSuccess: (token: string, userData: any) => void;
 }
 
 export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLoginView, setIsLoginView] = useState(true);
+  const [loginRole, setLoginRole] = useState<'Passenger' | 'Driver'>('Passenger');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  // Form State - Backend DTO'suna (UserRegisterDto) göre güncellendi
-  const [name, setName] = useState("");
-  const [surname, setSurname] = useState("");
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  // Form States
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
+  const [phone, setPhone] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
-  const handleSubmit = async () => {
-    // 1. Tip Güvenli Doğrulama (Validation)
-    if (isLogin) {
-      const result = await authService.login({ email, password });
-
-      if (result.success && result.data) {
-        // 1. Backend'den gelen token'ı cihaz hafızasına kaydet
-        const isSaved = await storageService.saveToken(result.data);
-
-        if (isSaved) {
-          // 2. Başarılı olduğunu ana yönlendiriciye (Navigator) bildir
-          onLoginSuccess(result.data);
-        } else {
-          Alert.alert(
-            "Hata",
-            "Giriş yapıldı ancak cihaz hafızasına kaydedilemedi.",
-          );
-        }
-      } else {
-        Alert.alert(
-          "Giriş Başarısız",
-          result.message || "Bilgilerinizi kontrol edin.",
-        );
-      }
-    }
-
+  const handleLogin = async () => {
+    if (!email || !password) return;
     setLoading(true);
-
+    
     try {
-      if (isLogin) {
-        // 2. Merkezi Servis Çağrısı (Login)
-        const result = await authService.login({ email, password });
-
-        if (result.success && result.data) {
-          // Başarılıysa dönen datayı (token) ana ekrana aktarıyoruz
-          onLoginSuccess(result.data);
-        } else {
-          Alert.alert(
-            "Giriş Başarısız",
-            result.message || "Bilgilerinizi kontrol edin.",
-          );
-        }
-      } else {
-        // 3. Merkezi Servis Çağrısı (Register)
-        const result = await authService.register({
-          name,
-          surname,
-          username,
-          email,
-          phoneNumber,
-          password,
-        });
-
-        if (result.success) {
-          Alert.alert(
-            "Başarılı",
-            "Kayıt işlemi tamamlandı. Lütfen giriş yapın.",
-          );
-          // Kayıt başarılıysa giriş ekranına yönlendir
-          setIsLogin(true);
-        } else {
-          Alert.alert(
-            "Kayıt Başarısız",
-            result.message || "İşlem tamamlanamadı.",
-          );
-        }
-      }
-    } catch (error: any) {
-      Alert.alert(
-        "Hata",
-        "Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edin.",
-      );
-    } finally {
+      // TODO: authService.login(email, password, loginRole) entegrasyonu buraya gelecek
+      // Şimdilik test amaçlı sahte bir token gönderiyoruz:
+      setTimeout(() => {
+        onLoginSuccess('TEST_TOKEN_123', { email, role: loginRole });
+        setLoading(false);
+      }, 1000);
+    } catch (error) {
+      console.error(error);
       setLoading(false);
     }
   };
 
+  const handleRegister = async () => {
+    if (!agreedToTerms) return;
+    setLoading(true);
+    // TODO: authService.register(...) entegrasyonu
+    setTimeout(() => {
+      setIsLoginView(true);
+      setLoading(false);
+    }, 1000);
+  };
+
+  // ─── LOGO BİLEŞENİ ───
+  const Logo = () => (
+    <View style={styles.logoContainer}>
+      <View style={styles.logoBox}>
+        <Ionicons name="bus-outline" size={28} color="#fff" />
+      </View>
+      <Text style={styles.logoTitle}>ShuttleTrack</Text>
+      <Text style={styles.logoSubtitle}>Corporate Transit Portal</Text>
+    </View>
+  );
+
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.card}>
-          <Text style={styles.title}>Servis Takip</Text>
-          <Text style={styles.subtitle}>
-            {isLogin ? "Personel Girişi" : "Personel Kayıt"}
-          </Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
+        {isLoginView ? (
+          /* ═════════ L O G I N   V I E W ═════════ */
+          <View style={styles.formWrapper}>
+            <Logo />
 
-          {/* Kayıt Modu Alanları */}
-          {!isLogin && (
-            <>
-              <TextInput
-                style={styles.input}
-                placeholder="Ad"
-                value={name}
-                onChangeText={setName}
-                autoCapitalize="words"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Soyad"
-                value={surname}
-                onChangeText={setSurname}
-                autoCapitalize="words"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Kullanıcı Adı"
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
-              />
-            </>
-          )}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Welcome back</Text>
+              <Text style={styles.cardSubtitle}>Sign in to your account to continue</Text>
 
-          {/* Ortak Alanlar */}
-          <TextInput
-            style={styles.input}
-            placeholder="E-posta"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
+              {/* ROL SEÇİMİ (SEKME) */}
+              <View style={styles.roleToggleContainer}>
+                <TouchableOpacity 
+                  style={[styles.roleTab, loginRole === 'Passenger' && styles.roleTabActive]}
+                  onPress={() => setLoginRole('Passenger')}
+                >
+                  <Text style={[styles.roleTabText, loginRole === 'Passenger' && styles.roleTabTextActive]}>
+                    Personel
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.roleTab, loginRole === 'Driver' && styles.roleTabActive]}
+                  onPress={() => setLoginRole('Driver')}
+                >
+                  <Text style={[styles.roleTabText, loginRole === 'Driver' && styles.roleTabTextActive]}>
+                    Şoför
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
-          {!isLogin && (
-            <TextInput
-              style={styles.input}
-              placeholder="Telefon"
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              keyboardType="phone-pad"
-            />
-          )}
+              {/* E-MAIL */}
+              <Text style={styles.inputLabel}>Email address</Text>
+              <View style={styles.inputContainer}>
+                <Feather name="mail" size={18} color="#9CA3AF" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="you@company.com"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={setEmail}
+                />
+              </View>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Şifre"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+              {/* PASSWORD */}
+              <View style={styles.passwordHeader}>
+                <Text style={styles.inputLabel}>Password</Text>
+                <TouchableOpacity>
+                  <Text style={styles.forgotPassword}>Forgot password?</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.inputContainer}>
+                <Feather name="lock" size={18} color="#9CA3AF" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="••••••••"
+                  placeholderTextColor="#9CA3AF"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={setPassword}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <Feather name={showPassword ? "eye-off" : "eye"} size={18} color="#9CA3AF" />
+                </TouchableOpacity>
+              </View>
 
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={handleSubmit}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.primaryButtonText}>
-                {isLogin ? "Giriş Yap" : "Kayıt Ol"}
+              {/* LOGIN BUTTON */}
+              <TouchableOpacity style={styles.primaryButton} onPress={handleLogin} disabled={loading}>
+                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Log In</Text>}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Don't have an account? </Text>
+              <TouchableOpacity onPress={() => setIsLoginView(false)}>
+                <Text style={styles.footerLink}>Sign up</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.copyright}>© 2026 ShuttleTrack · Secure access</Text>
+          </View>
+        ) : (
+          /* ═════════ R E G I S T E R   V I E W ═════════ */
+          <View style={styles.formWrapper}>
+            <View style={styles.registerHeader}>
+              <View style={[styles.logoBox, { width: 40, height: 40, borderRadius: 10, marginBottom: 16 }]}>
+                <Ionicons name="bus-outline" size={24} color="#fff" />
+              </View>
+              <Text style={styles.logoTitle}>ShuttleTrack</Text>
+              <Text style={[styles.cardTitle, { fontSize: 26, marginTop: 4 }]}>Create your account</Text>
+              <Text style={styles.cardSubtitle}>Get started with corporate transit in minutes.</Text>
+            </View>
+
+            <View style={styles.row}>
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <Text style={styles.inputLabelUppercase}>FIRST NAME</Text>
+                <View style={styles.inputContainer}>
+                  <Feather name="user" size={18} color="#9CA3AF" style={styles.inputIcon} />
+                  <TextInput style={styles.input} placeholder="Jane" placeholderTextColor="#9CA3AF" value={firstName} onChangeText={setFirstName} />
+                </View>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabelUppercase}>LAST NAME</Text>
+                <View style={styles.inputContainer}>
+                  <Feather name="user" size={18} color="#9CA3AF" style={styles.inputIcon} />
+                  <TextInput style={styles.input} placeholder="Doe" placeholderTextColor="#9CA3AF" value={lastName} onChangeText={setLastName} />
+                </View>
+              </View>
+            </View>
+
+            <Text style={styles.inputLabelUppercase}>USERNAME</Text>
+            <View style={styles.inputContainer}>
+              <Feather name="at-sign" size={18} color="#9CA3AF" style={styles.inputIcon} />
+              <TextInput style={styles.input} placeholder="janedoe42" placeholderTextColor="#9CA3AF" autoCapitalize="none" value={username} onChangeText={setUsername} />
+            </View>
+
+            <Text style={styles.inputLabelUppercase}>EMAIL</Text>
+            <View style={styles.inputContainer}>
+              <Feather name="mail" size={18} color="#9CA3AF" style={styles.inputIcon} />
+              <TextInput style={styles.input} placeholder="jane.doe@company.com" placeholderTextColor="#9CA3AF" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
+            </View>
+
+            <Text style={styles.inputLabelUppercase}>PHONE NUMBER</Text>
+            <View style={styles.inputContainer}>
+              <Feather name="phone" size={18} color="#9CA3AF" style={styles.inputIcon} />
+              <TextInput style={styles.input} placeholder="+1 (555) 000-0000" placeholderTextColor="#9CA3AF" keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
+            </View>
+
+            <Text style={styles.inputLabelUppercase}>PASSWORD</Text>
+            <View style={styles.inputContainer}>
+              <Feather name="lock" size={18} color="#9CA3AF" style={styles.inputIcon} />
+              <TextInput style={styles.input} placeholder="Min. 8 characters" placeholderTextColor="#9CA3AF" secureTextEntry={!showPassword} value={password} onChangeText={setPassword} />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                <Feather name={showPassword ? "eye-off" : "eye"} size={18} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.termsContainer}>
+              <TouchableOpacity style={styles.checkbox} onPress={() => setAgreedToTerms(!agreedToTerms)}>
+                {agreedToTerms && <Feather name="check" size={14} color="#2563EB" />}
+              </TouchableOpacity>
+              <Text style={styles.termsText}>
+                I agree to the <Text style={styles.linkText}>Terms of Service</Text> and <Text style={styles.linkText}>Privacy Policy</Text>
               </Text>
-            )}
-          </TouchableOpacity>
+            </View>
 
-          <TouchableOpacity
-            style={styles.switchButton}
-            onPress={() => setIsLogin(!isLogin)}
-          >
-            <Text style={styles.switchText}>
-              {isLogin
-                ? "Hesabınız yok mu? Kayıt Olun"
-                : "Zaten hesabınız var mı? Giriş Yapın"}
-            </Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity style={[styles.primaryButton, !agreedToTerms && { backgroundColor: '#93C5FD' }]} onPress={handleRegister} disabled={!agreedToTerms || loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Sign Up</Text>}
+            </TouchableOpacity>
+
+            <View style={[styles.footer, { marginTop: 24 }]}>
+              <Text style={styles.footerText}>Already have an account? </Text>
+              <TouchableOpacity onPress={() => setIsLoginView(true)}>
+                <Text style={styles.footerLink}>Log in</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f3f4f6" },
-  scrollContainer: { flexGrow: 1, justifyContent: "center", padding: 20 },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 24,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "bold",
-    color: "#111827",
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#6b7280",
-    textAlign: "center",
-    marginBottom: 24,
-    marginTop: 4,
-  },
-  input: {
-    backgroundColor: "#f9fafb",
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 10,
-    padding: 14,
-    fontSize: 15,
-    marginBottom: 14,
-  },
-  primaryButton: {
-    backgroundColor: "#2563eb",
-    borderRadius: 10,
-    padding: 16,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  primaryButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
-  switchButton: { marginTop: 18, alignItems: "center" },
-  switchText: { color: "#2563eb", fontSize: 14, fontWeight: "600" },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 20 },
+  formWrapper: { width: '100%', maxWidth: 400, alignSelf: 'center' },
+  
+  // Logo
+  logoContainer: { alignItems: 'center', marginBottom: 24, marginTop: 40 },
+  logoBox: { backgroundColor: '#2563EB', width: 48, height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  logoTitle: { fontSize: 20, fontWeight: 'bold', color: '#111827' },
+  logoSubtitle: { fontSize: 14, color: '#6B7280', marginTop: 4 },
+  
+  // Card
+  card: { backgroundColor: '#fff', borderRadius: 20, padding: 24, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 15, elevation: 5 },
+  cardTitle: { fontSize: 22, fontWeight: 'bold', color: '#111827', marginBottom: 8 },
+  cardSubtitle: { fontSize: 14, color: '#6B7280', marginBottom: 24 },
+  
+  // Role Toggle (Personel / Şoför)
+  roleToggleContainer: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 10, padding: 4, marginBottom: 24 },
+  roleTab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
+  roleTabActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 },
+  roleTabText: { fontSize: 14, fontWeight: '600', color: '#64748B' },
+  roleTabTextActive: { color: '#0F172A' },
+
+  // Inputs
+  inputLabel: { fontSize: 14, fontWeight: '600', color: '#111827', marginBottom: 8 },
+  inputLabelUppercase: { fontSize: 11, fontWeight: 'bold', color: '#9CA3AF', marginBottom: 8, marginTop: 16, letterSpacing: 0.5 },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 14, height: 52, backgroundColor: '#fff', marginBottom: 16 },
+  inputIcon: { marginRight: 10 },
+  input: { flex: 1, fontSize: 15, color: '#111827' },
+  passwordHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  forgotPassword: { fontSize: 13, color: '#2563EB', fontWeight: '500', marginBottom: 8 },
+  
+  // Buttons
+  primaryButton: { backgroundColor: '#2563EB', borderRadius: 12, height: 52, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
+  primaryButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  
+  // Footer
+  footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 32 },
+  footerText: { color: '#6B7280', fontSize: 14 },
+  footerLink: { color: '#2563EB', fontSize: 14, fontWeight: 'bold' },
+  copyright: { textAlign: 'center', color: '#9CA3AF', fontSize: 12, marginTop: 24 },
+
+  // Register specifics
+  registerHeader: { marginBottom: 16, marginTop: 40 },
+  row: { flexDirection: 'row' },
+  termsContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, marginTop: 8 },
+  checkbox: { width: 20, height: 20, borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 4, marginRight: 12, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+  termsText: { flex: 1, fontSize: 13, color: '#6B7280', lineHeight: 20 },
+  linkText: { color: '#2563EB', fontWeight: '500' },
 });
