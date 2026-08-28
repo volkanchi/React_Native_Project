@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
   ActivityIndicator, Alert, ScrollView, LayoutAnimation, Platform, UIManager
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import Svg, { Path, Circle, Rect, Polygon, Ellipse } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Polygon } from 'react-native-svg';
 import { routeService } from '../services/routeService';
 import { storageService } from '../services/storageService';
 
-// Yapay zekanın ürettiği varsayılan/örnek veriler (İleride API'den gelecek)
 const ROUTE_DATA = {
+  id: "VERITABANINDAKI-GERCEK-GUID-BURAYA", // Backend'den gelecek aktif rota ID'si
   name: "Merkez Ekspres",
   number: "R-07",
   driver: { name: "Ahmet Yılmaz", initials: "AY", rating: 4.9 },
@@ -20,8 +20,6 @@ const ROUTE_DATA = {
     { id: 3, label: "İş Merkezi", time: "08:12", status: "next" },
     { id: 4, label: "Kuzey Plaza", time: "08:28", status: "upcoming" },
   ],
-  eta: "8 dk",
-  distance: "2.4 km",
   occupancy: 14,
   capacity: 22,
 };
@@ -38,8 +36,10 @@ export default function PassengerMainScreen({
   const [routeCode, setRouteCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [sheetExpanded, setSheetExpanded] = useState(false);
+  
+  // Kullanıcının kayıtlı bir rotası var mı kontrolü (Bunu ileride API'den çekeceğiz)
+  const [activeRouteId, setActiveRouteId] = useState<string | null>(ROUTE_DATA.id);
 
-  // Kartın açılıp kapanma animasyonu
   const toggleSheet = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSheetExpanded(!sheetExpanded);
@@ -53,14 +53,14 @@ export default function PassengerMainScreen({
     setLoading(true);
     try {
       const token = await storageService.getToken();
-      if (!token) {
-        onLogout();
-        return;
-      }
+      if (!token) return onLogout();
+      
       const payload = { routeCode: routeCode.trim().toUpperCase(), location: { latitude: 41.0082, longitude: 28.9784 } };
       const result = await routeService.joinRoute(payload, token);
 
       if (result.success && result.data) {
+        // API başarılı yanıt verirse, alınan ID'yi aktif rota yap ve haritaya git
+        setActiveRouteId(result.data);
         onNavigateToLiveTracking(result.data);
       } else {
         Alert.alert('Hata', result.message || 'Rota bulunamadı.');
@@ -76,7 +76,6 @@ export default function PassengerMainScreen({
 
   return (
     <View style={styles.container}>
-      {/* 1. MAP AREA (Gerçek Harita) */}
       <MapView 
         style={StyleSheet.absoluteFillObject}
         provider={PROVIDER_GOOGLE}
@@ -86,12 +85,9 @@ export default function PassengerMainScreen({
         <Marker coordinate={{ latitude: 41.0182, longitude: 28.9784 }} title="Şu anki konum" />
       </MapView>
 
-      {/* Üst Bar (Top Bar) */}
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
-          <View style={styles.logoIcon}>
-            <BusIconSmall />
-          </View>
+          <View style={styles.logoIcon}><BusIconSmall /></View>
           <Text style={styles.appName}>ServisTakip</Text>
         </View>
         <TouchableOpacity style={styles.iconButton} onPress={onLogout}>
@@ -99,15 +95,12 @@ export default function PassengerMainScreen({
         </TouchableOpacity>
       </View>
 
-      {/* 2. BOTTOM SHEET (Detay Kartı) */}
       <View style={[styles.bottomSheet, { height: sheetExpanded ? '85%' : '48%' }]}>
-        {/* Sürükleme Çubuğu */}
         <TouchableOpacity style={styles.dragHandleContainer} onPress={toggleSheet}>
           <View style={styles.dragHandle} />
         </TouchableOpacity>
 
         <ScrollView style={styles.scrollInner} showsVerticalScrollIndicator={false}>
-          {/* Güzergah Başlığı ve Doluluk Oranı */}
           <View style={styles.routeHeader}>
             <View>
               <View style={styles.badgeRow}>
@@ -120,7 +113,6 @@ export default function PassengerMainScreen({
             <OccupancyRing pct={occupancyPct} current={ROUTE_DATA.occupancy} total={ROUTE_DATA.capacity} />
           </View>
 
-          {/* Şoför ve Araç Bilgisi */}
           <View style={styles.driverCard}>
             <View style={styles.avatar}><Text style={styles.avatarText}>{ROUTE_DATA.driver.initials}</Text></View>
             <View style={styles.driverInfo}>
@@ -137,7 +129,6 @@ export default function PassengerMainScreen({
             </View>
           </View>
 
-          {/* Genişletildiğinde Görünen Duraklar Listesi */}
           {sheetExpanded && (
             <View style={styles.stopsContainer}>
               <Text style={styles.stopsTitle}>DURAKLAR</Text>
@@ -148,22 +139,33 @@ export default function PassengerMainScreen({
           )}
         </ScrollView>
 
-        {/* Aksiyon Alanı (Rota Kodu ve Buton) */}
+        {/* DİNAMİK AKSİYON ALANI */}
         <View style={styles.ctaArea}>
-          <TextInput
-            style={styles.input}
-            placeholder="Rota Kodunu Giriniz (Örn: 34ABC123)"
-            value={routeCode}
-            onChangeText={setRouteCode}
-            autoCapitalize="characters"
-          />
-          <TouchableOpacity 
-            style={styles.primaryButton} 
-            onPress={handleJoinRoute}
-            disabled={loading}
-          >
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Rotaya Katıl</Text>}
-          </TouchableOpacity>
+          {activeRouteId ? (
+            <TouchableOpacity 
+              style={[styles.primaryButton, { backgroundColor: '#10B981' }]} 
+              onPress={() => onNavigateToLiveTracking(activeRouteId)}
+            >
+              <Text style={styles.primaryButtonText}>🗺️ Canlı Haritayı Aç</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="Rota Kodunu Giriniz (Örn: 34ABC123)"
+                value={routeCode}
+                onChangeText={setRouteCode}
+                autoCapitalize="characters"
+              />
+              <TouchableOpacity 
+                style={styles.primaryButton} 
+                onPress={handleJoinRoute}
+                disabled={loading}
+              >
+                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Rotaya Katıl</Text>}
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     </View>

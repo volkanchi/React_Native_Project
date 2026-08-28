@@ -1,18 +1,17 @@
 import * as signalR from '@microsoft/signalr';
-import {SIGNALR_HUB_URL} from "../constants/config"
+import {SIGNALR_HUB_URL} from "../constants/config";
 
 let hubConnection: signalR.HubConnection | null = null;
 
-// 1. TEMEL BAĞLANTI YÖNETİMİ
 export const startSignalRConnection = async (token: string) => {
   if (hubConnection && hubConnection.state !== signalR.HubConnectionState.Disconnected) {
-    return; // Zaten bağlıysa veya bağlanıyorsa işlemi iptal et
+    return;
   }
 
   hubConnection = new signalR.HubConnectionBuilder()
     .withUrl(SIGNALR_HUB_URL, { accessTokenFactory: () => token })
-    .withAutomaticReconnect() // Bağlantı koparsa otomatik tekrar dener
-    .configureLogging(signalR.LogLevel.Warning) // Konsol kirliliğini önler
+    .withAutomaticReconnect()
+    .configureLogging(signalR.LogLevel.Warning)
     .build();
 
   try {
@@ -35,10 +34,12 @@ export const stopSignalRConnection = async () => {
   }
 };
 
+// YOLCU VEYA ŞOFÖR GRUBA KATILIR
 export const joinRoute = async (routeId: string) => {
   if (hubConnection?.state === signalR.HubConnectionState.Connected) {
     try {
-      await hubConnection.invoke('JoinRoute', routeId);
+      // C# tarafındaki metod adı: JoinRouteGroup
+      await hubConnection.invoke('JoinRouteGroup', routeId);
       console.log(`🔗 Rotaya (Gruba) Katılındı: ${routeId}`);
     } catch (error) {
       console.error('❌ Rotaya katılma hatası:', error);
@@ -48,30 +49,34 @@ export const joinRoute = async (routeId: string) => {
   }
 };
 
-// 2. ŞOFÖR İÇİN (SENDER / GÖNDERİCİ)
-
+// ŞOFÖR KONUM GÖNDERİR
 export const sendLocationUpdate = async (routeId: string, latitude: number, longitude: number) => {
   if (hubConnection?.state === signalR.HubConnectionState.Connected) {
     try {
-      // Backend'deki Hub metodunun adı: UpdateLocation
-      await hubConnection.invoke('UpdateLocation', routeId, latitude, longitude);
+      // C# tarafındaki DriverLocationDto nesnesine uygun şekilde obje gönderiyoruz
+      const locationDto = {
+        routeId: routeId, 
+        latitude: latitude,
+        longitude: longitude
+      };
+      
+      // C# tarafındaki metod adı: SendLocationUpdate
+      await hubConnection.invoke('SendLocationUpdate', locationDto);
     } catch (error) {
       console.error('❌ Konum gönderme hatası:', error);
     }
   }
 };
 
-// 3. YOLCU İÇİN (LISTENER / DİNLEYİCİ)
+// YOLCU KONUM DİNLER
 export const subscribeToLocationUpdates = (callback: (data: { latitude: number, longitude: number }) => void) => {
   if (hubConnection) {
-    // Backend'in yayın yaptığı metod adı: ReceiveLocationUpdate
-    // Önceki dinleyicileri temizle (çift tetiklenmeyi önlemek için)
     hubConnection.off('ReceiveLocationUpdate');
+    // C# tarafındaki fırlatma adı: ReceiveLocationUpdate
     hubConnection.on('ReceiveLocationUpdate', callback);
   }
 };
 
-// Bileşen ekrandan ayrıldığında (unmount) dinlemeyi bırakmak için
 export const unsubscribeFromLocationUpdates = () => {
   if (hubConnection) {
     hubConnection.off('ReceiveLocationUpdate');
