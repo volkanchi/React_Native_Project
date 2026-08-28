@@ -1,3 +1,4 @@
+import { jwtDecode } from 'jwt-decode';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Cihaz hafızasında veriyi tutacağımız anahtar (key) ismi
@@ -35,4 +36,21 @@ export const storageService = {
       return false;
     }
   }
+  
 };
+export const getUserRole = async (): Promise<string | null> => {
+  try {
+    const token = await storageService.getToken();
+    if (!token) return null;
+
+    const decodedToken: any = jwtDecode(token);
+    
+    // .NET 8 varsayılan Role Claim adresi veya direkt 'role' key'i
+    const role = decodedToken['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || decodedToken.role;
+    
+    return role || null;
+  } catch (error) {
+    console.error("Token çözülürken hata:", error);
+    return null;
+  }
+}
