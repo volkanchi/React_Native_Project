@@ -43,12 +43,15 @@ export const getUserRole = async (): Promise<string | null> => {
     const token = await storageService.getToken();
     if (!token) return null;
 
-    const decodedToken: any = jwtDecode(token);
+    const decodedToken: { exp?: number; role?: string; [key: string]: unknown } = jwtDecode(token);
+    if (decodedToken.exp && decodedToken.exp * 1000 <= Date.now()) {
+      await storageService.removeToken();
+      return null;
+    }
     
     // .NET 8 varsayılan Role Claim adresi veya direkt 'role' key'i
-    const role = decodedToken['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || decodedToken.role;
-    
-    return role || null;
+    const roleClaim = decodedToken['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || decodedToken.role;
+    return typeof roleClaim === 'string' ? roleClaim : null;
   } catch (error) {
     console.error("Token çözülürken hata:", error);
     return null;

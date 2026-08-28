@@ -24,6 +24,10 @@ export const startSignalRConnection = async (token: string): Promise<signalR.Hub
     console.log("SignalR Connected.");
   } catch (err) {
     console.error("SignalR Connection Error: ", err);
+    const failedConnection = connection;
+    connection = null;
+    await failedConnection.stop().catch(() => undefined);
+    throw err;
   }
 
   return connection;

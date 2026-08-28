@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import AuthScreen from '../screens/AuthScreen';
-import PassengerMainScreen from '../screens/PassengerMainScreen';
-import LiveTrackingScreen from '../screens/LiveTrackingScreen';
-import { getUserRole, storageService  } from '../services/storageService';
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import AuthScreen from "../screens/AuthScreen";
+import PassengerMainScreen from "../screens/PassengerMainScreen";
+import LiveTrackingScreen from "../screens/LiveTrackingScreen";
+import { getUserRole, storageService } from "../services/storageService";
 
 type RootStackParamList = {
   Login: undefined;
@@ -35,17 +35,18 @@ export default function AppNavigator() {
 
   // Çıkış yapıldığında veya giriş yapıldığında tetiklenecek fonksiyon
   // Bunu sayfalara props veya Context olarak geçebiliriz
-  const handleAuthChange = () => {
-    checkUserStatus();
+  const handleLoginSuccess = async (token: string) => {
+    const saved = await storageService.saveToken(token);
+    if (saved) await checkUserStatus();
   };
 
   const handleLogout = async () => {
-  await storageService.removeToken(); // token'ı cihazdan tamamen sil
-  checkUserStatus(); // Sonra durumu güncelle token silindiği için AuthStack'e düşecek
+    await storageService.removeToken(); // token'ı cihazdan tamamen sil
+    await checkUserStatus();
   };
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#1E4ED8" />
       </View>
     );
@@ -53,45 +54,42 @@ export default function AppNavigator() {
 
   return (
     
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        
-        {!userRole ? (
-          <Stack.Screen name="Login">
-            {() => <AuthScreen onLoginSuccess={handleAuthChange} />}
+      <Stack.Navigator key={userRole || "guest"} screenOptions={{ headerShown: false }}>
+      {!userRole ? (
+        <Stack.Screen name="Login">
+          {() => <AuthScreen onLoginSuccess={handleLoginSuccess} />}
+        </Stack.Screen>
+      ) : userRole === "Sofor" || userRole === "Driver" ? (
+        <Stack.Screen name="DriverMain">
+          {() => <DriverPlaceholder onLogout={handleLogout} />}
+        </Stack.Screen>
+      ) : (
+        <>
+          <Stack.Screen name="PassengerMain">
+            {({ navigation }) => (
+              <PassengerMainScreen
+                user={null}
+                onNavigateToLiveTracking={(routeId) =>
+                  navigation.navigate("LiveTracking", { routeId })
+                }
+                onLogout={handleLogout}
+              />
+            )}
           </Stack.Screen>
-        ) : 
-        userRole === 'Driver' ? (
-          <Stack.Screen name="DriverMain">
-            {() => <DriverPlaceholder onLogout={handleLogout} />}
-          </Stack.Screen>
-        ) : 
-        (
-          <>
-            <Stack.Screen name="PassengerMain">
-              {({ navigation }) => (
-                <PassengerMainScreen
-                  user={null}
-                  onNavigateToLiveTracking={(routeId) =>
-                    navigation.navigate('LiveTracking', { routeId })
-                  }
-                  onLogout={handleLogout}
-                />
-              )}
-            </Stack.Screen>
-            <Stack.Screen name="LiveTracking" component={LiveTrackingScreen} />
-          </>
-        )}
-
+          <Stack.Screen name="LiveTracking" component={LiveTrackingScreen} />
+        </>
+      )}
       </Stack.Navigator>
+    
   );
 }
 
 function DriverPlaceholder({ onLogout }: { onLogout: () => void }) {
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
       <Text>Şoför ekranı hazırlanıyor.</Text>
       <TouchableOpacity onPress={onLogout}>
-        <Text style={{ color: '#1E4ED8', marginTop: 16 }}>Çıkış Yap</Text>
+        <Text style={{ color: "#1E4ED8", marginTop: 16 }}>Çıkış Yap</Text>
       </TouchableOpacity>
     </View>
   );

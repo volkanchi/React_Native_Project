@@ -9,8 +9,10 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons'; 
+import { authService } from '../services/authService';
 
 interface AuthScreenProps {
   onLoginSuccess: (token: string, userData: any) => void;
@@ -32,30 +34,62 @@ export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) return;
+    // 1. KONTROL: Alanlar boş mu?
+    if (!email || !password) {
+      Alert.alert('Uyarı', 'Lütfen email ve şifre alanlarını doldurun.');
+      return; // Boşsa işlemi burada durdur
+    }
+    
     setLoading(true);
     
     try {
-      // TODO: authService.login(email, password, loginRole) entegrasyonu buraya gelecek
-      // Şimdilik test amaçlı sahte bir token gönderiyoruz:
-      setTimeout(() => {
-        onLoginSuccess('TEST_TOKEN_123', { email, role: loginRole });
-        setLoading(false);
-      }, 1000);
+      const response = await authService.login({
+        email: email.trim(),
+        password,
+      });
+
+      if (response.success && response.data) {
+        onLoginSuccess(response.data, { email: email.trim() });
+      } else {
+        Alert.alert('Giriş Başarısız', response.message || 'Bilgilerinizi kontrol edin.');
+      }
     } catch (error) {
-      console.error(error);
+      Alert.alert('Hata', 'Sunucuya bağlanılamadı.');
+    } finally {
       setLoading(false);
     }
   };
 
   const handleRegister = async () => {
     if (!agreedToTerms) return;
+    if (!firstName || !lastName || !username || !email || !phone || !password) {
+      Alert.alert('Uyarı', 'Lütfen tüm alanları doldurun.');
+      return;
+    }
     setLoading(true);
-    // TODO: authService.register(...) entegrasyonu
-    setTimeout(() => {
-      setIsLoginView(true);
+    try {
+      const response = await authService.register({
+        name: firstName.trim(),
+        surname: lastName.trim(),
+        username: username.trim(),
+        email: email.trim(),
+        phoneNumber: phone.trim(),
+        password,
+      });
+
+      if (response.success) {
+        Alert.alert('Başarılı', 'Kayıt tamamlandı. Şimdi giriş yapabilirsiniz.');
+        setIsLoginView(true);
+        setPassword('');
+        setAgreedToTerms(false);
+      } else {
+        Alert.alert('Kayıt Başarısız', response.message || 'Kayıt tamamlanamadı.');
+      }
+    } catch {
+      Alert.alert('Hata', 'Sunucuya bağlanılamadı.');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   // ─── LOGO BİLEŞENİ ───

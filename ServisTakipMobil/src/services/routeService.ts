@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../constants/config'; 
+import { ApiResponse } from '../types/common.types';
 
 export interface JoinRoutePayload {
   routeCode: string;
@@ -9,7 +10,7 @@ export interface JoinRoutePayload {
 }
 
 export const routeService = {
-  joinRoute: async (payload: JoinRoutePayload, token: string) => {
+  joinRoute: async (payload: JoinRoutePayload, token: string): Promise<ApiResponse<string>> => {
     try {
       const response = await fetch(`${API_BASE_URL}/PassengerRoute/join`, {
         method: 'POST',
@@ -41,9 +42,10 @@ export const routeService = {
         };
       }
 
-      return { 
-        success: true, 
-        data: data.data || data 
+      return {
+        success: data.success === true,
+        message: data.message || '',
+        data: data.data ? String(data.data) : undefined,
       };
       
     } catch (error) {

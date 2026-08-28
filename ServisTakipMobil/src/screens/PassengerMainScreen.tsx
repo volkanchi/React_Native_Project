@@ -62,11 +62,11 @@ export default function PassengerMainScreen({
         onLogout();
         return;
       }
-      const payload = { routeCode: routeCode, location: { latitude: 41.0082, longitude: 28.9784 } };
+      const payload = { routeCode: routeCode.trim().toUpperCase(), location: { latitude: 41.0082, longitude: 28.9784 } };
       const result = await routeService.joinRoute(payload, token);
 
       if (result.success && result.data) {
-        onNavigateToLiveTracking(result.data.id);
+        onNavigateToLiveTracking(result.data);
       } else {
         Alert.alert('Hata', result.message || 'Rota bulunamadı.');
       }

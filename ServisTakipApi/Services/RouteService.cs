@@ -192,13 +192,13 @@ namespace ServisTakipApi.Services
                 }).ToList()
             };
         }
-        public async Task<Response<bool>> JoinRouteAsync(Guid passengerId, JoinRouteDto joinDto)
+        public async Task<Response<Guid>> JoinRouteAsync(Guid passengerId, JoinRouteDto joinDto)
         {
             var route = await _routeRepository.GetRouteByCodeAsync(joinDto.RouteCode);
-            if (route == null) return Response<bool>.Fail("Geçersiz veya silinmiş bir servis kodu girdiniz.");
+            if (route == null) return Response<Guid>.Fail("Geçersiz veya silinmiş bir servis kodu girdiniz.");
 
             if (route.Stops.Any(s => s.PassengerId == passengerId))
-                return Response<bool>.Fail("Bu servise zaten kayıtlısınız.");
+                return Response<Guid>.Fail("Bu servise zaten kayıtlısınız.");
 
             // 1. Yeni durağı oluştur
             var newStop = new RouteStop
@@ -220,7 +220,7 @@ namespace ServisTakipApi.Services
                 newStop,
                 route.Stops.Where(s => s.Id != newStop.Id));
 
-            return Response<bool>.Successful("Servise başarıyla katıldınız.", true);
+            return Response<Guid>.Successful("Servise başarıyla katıldınız.", route.Id);
         }
 
         public async Task<Response<bool>> UpdateStopLocationAsync(Guid passengerId, Guid routeId, UpdateStopLocationDto updateDto)
