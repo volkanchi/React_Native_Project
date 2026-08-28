@@ -8,11 +8,6 @@ import Svg, { Path, Circle, Rect, Polygon, Ellipse } from 'react-native-svg';
 import { routeService } from '../services/routeService';
 import { storageService } from '../services/storageService';
 
-// Android'de LayoutAnimation (Açılır/Kapanır Kart animasyonu) için gerekli ayar
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
 // Yapay zekanın ürettiği varsayılan/örnek veriler (İleride API'den gelecek)
 const ROUTE_DATA = {
   name: "Merkez Ekspres",

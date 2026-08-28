@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AuthScreen from "../screens/AuthScreen";
 import PassengerMainScreen from "../screens/PassengerMainScreen";
 import LiveTrackingScreen from "../screens/LiveTrackingScreen";
+import DriverMainScreen from '../screens/DriverMainScreen';
 import { getUserRole, storageService } from "../services/storageService";
 
 type RootStackParamList = {
@@ -61,7 +62,7 @@ export default function AppNavigator() {
         </Stack.Screen>
       ) : userRole === "Sofor" || userRole === "Driver" ? (
         <Stack.Screen name="DriverMain">
-          {() => <DriverPlaceholder onLogout={handleLogout} />}
+          {() => <DriverMainScreen onLogout={handleLogout} />}
         </Stack.Screen>
       ) : (
         <>
@@ -84,13 +85,3 @@ export default function AppNavigator() {
   );
 }
 
-function DriverPlaceholder({ onLogout }: { onLogout: () => void }) {
-  return (
-    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-      <Text>Şoför ekranı hazırlanıyor.</Text>
-      <TouchableOpacity onPress={onLogout}>
-        <Text style={{ color: "#1E4ED8", marginTop: 16 }}>Çıkış Yap</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
