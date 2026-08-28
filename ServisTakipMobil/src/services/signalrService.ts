@@ -1,64 +1,79 @@
-import * as signalR from "@microsoft/signalr";
-import { SIGNALR_HUB_URL } from '../constants/config';
+import * as signalR from '@microsoft/signalr';
+import {SIGNALR_HUB_URL} from "../constants/config"
 
-let connection: signalR.HubConnection | null = null;
+let hubConnection: signalR.HubConnection | null = null;
 
-export const startSignalRConnection = async (token: string): Promise<signalR.HubConnection> => {
-  if (connection && connection.state === signalR.HubConnectionState.Connected) {
-    return connection;
+// 1. TEMEL BAĞLANTI YÖNETİMİ
+export const startSignalRConnection = async (token: string) => {
+  if (hubConnection && hubConnection.state !== signalR.HubConnectionState.Disconnected) {
+    return; // Zaten bağlıysa veya bağlanıyorsa işlemi iptal et
   }
 
-  connection = new signalR.HubConnectionBuilder()
-    .withUrl(SIGNALR_HUB_URL, {
-      accessTokenFactory: () => token,
-      transport:
-        signalR.HttpTransportType.WebSockets |
-        signalR.HttpTransportType.LongPolling,
-    })
-    .withAutomaticReconnect([0, 2000, 5000, 10000])
-    .configureLogging(signalR.LogLevel.Information)
+  hubConnection = new signalR.HubConnectionBuilder()
+    .withUrl(SIGNALR_HUB_URL, { accessTokenFactory: () => token })
+    .withAutomaticReconnect() // Bağlantı koparsa otomatik tekrar dener
+    .configureLogging(signalR.LogLevel.Warning) // Konsol kirliliğini önler
     .build();
 
   try {
-    await connection.start();
-    console.log("SignalR Connected.");
-  } catch (err) {
-    console.error("SignalR Connection Error: ", err);
-    const failedConnection = connection;
-    connection = null;
-    await failedConnection.stop().catch(() => undefined);
-    throw err;
-  }
-
-  return connection;
-};
-
-export const joinRoute = async (routeId: string) => {
-  if (connection && connection.state === signalR.HubConnectionState.Connected) {
-    await connection.invoke("JoinRouteGroup", routeId);
-  } else {
-    console.warn("SignalR bağlı değil, gruba katılınamadı.");
-  }
-};
-
-export const leaveRoute = async (routeId: string) => {
-  if (connection && connection.state === signalR.HubConnectionState.Connected) {
-    await connection.invoke("LeaveRouteGroup", routeId);
-  }
-};
-
-export const subscribeToLocationUpdates = (
-  callback: (location: any) => void
-) => {
-  if (connection) {
-    connection.off("ReceiveLocationUpdate"); // Çift dinlemeyi önlemek için önceki listener'ı temizle
-    connection.on("ReceiveLocationUpdate", callback);
+    await hubConnection.start();
+    console.log('✅ SignalR Bağlantısı Başarılı!');
+  } catch (error) {
+    console.error('❌ SignalR Bağlantı Hatası:', error);
   }
 };
 
 export const stopSignalRConnection = async () => {
-  if (connection) {
-    await connection.stop();
-    connection = null;
+  if (hubConnection && hubConnection.state !== signalR.HubConnectionState.Disconnected) {
+    try {
+      await hubConnection.stop();
+      hubConnection = null;
+      console.log('🛑 SignalR Bağlantısı Güvenli Şekilde Kapatıldı.');
+    } catch (error) {
+      console.error('❌ SignalR Kapatılırken Hata:', error);
+    }
+  }
+};
+
+export const joinRoute = async (routeId: string) => {
+  if (hubConnection?.state === signalR.HubConnectionState.Connected) {
+    try {
+      await hubConnection.invoke('JoinRoute', routeId);
+      console.log(`🔗 Rotaya (Gruba) Katılındı: ${routeId}`);
+    } catch (error) {
+      console.error('❌ Rotaya katılma hatası:', error);
+    }
+  } else {
+    console.warn('⚠️ SignalR bağlı değil, rotaya katılınamadı.');
+  }
+};
+
+// 2. ŞOFÖR İÇİN (SENDER / GÖNDERİCİ)
+
+export const sendLocationUpdate = async (routeId: string, latitude: number, longitude: number) => {
+  if (hubConnection?.state === signalR.HubConnectionState.Connected) {
+    try {
+      // Backend'deki Hub metodunun adı: UpdateLocation
+      await hubConnection.invoke('UpdateLocation', routeId, latitude, longitude);
+    } catch (error) {
+      console.error('❌ Konum gönderme hatası:', error);
+    }
+  }
+};
+
+// 3. YOLCU İÇİN (LISTENER / DİNLEYİCİ)
+export const subscribeToLocationUpdates = (callback: (data: { latitude: number, longitude: number }) => void) => {
+  if (hubConnection) {
+    // Backend'in yayın yaptığı metod adı: ReceiveLocationUpdate
+    // Önceki dinleyicileri temizle (çift tetiklenmeyi önlemek için)
+    hubConnection.off('ReceiveLocationUpdate');
+    hubConnection.on('ReceiveLocationUpdate', callback);
+  }
+};
+
+// Bileşen ekrandan ayrıldığında (unmount) dinlemeyi bırakmak için
+export const unsubscribeFromLocationUpdates = () => {
+  if (hubConnection) {
+    hubConnection.off('ReceiveLocationUpdate');
   }
 };
