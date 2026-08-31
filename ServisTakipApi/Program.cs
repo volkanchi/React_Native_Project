@@ -51,7 +51,7 @@ builder.Services.AddAuthentication(options =>
             var path = context.HttpContext.Request.Path;
 
             // İstek SignalR Hub yoluna geliyorsa token'ı query string'den oku
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/location"))
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/location", StringComparison.OrdinalIgnoreCase))
             {
                 context.Token = accessToken;
             }

@@ -35,7 +35,7 @@ namespace ServisTakipApi.Hubs
             }
         }
         // 3. Sürücü: Anlık konumunu basar (Sadece Driver rolü yetkilidir)
-        [Authorize(Roles = "Driver")]
+        [Authorize(Roles = "Sofor")]
         public async Task SendLocationUpdate(DriverLocationDto locationDto)
         {
             // İlgili rotayı dinleyen tüm yolculara konumu anlık fırlat
