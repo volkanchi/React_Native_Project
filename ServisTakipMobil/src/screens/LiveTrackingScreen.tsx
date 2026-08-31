@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
-import { storageService } from '../services/storageService'; // Token'ı kendisi alacak
-
+import { storageService } from '../services/storageService';
 import {
   joinRoute,
   startSignalRConnection,
@@ -10,23 +9,18 @@ import {
   subscribeToLocationUpdates,
 } from '../services/signalrService';
 
-// Navigation üzerinden gelecek parametreler (routeId)
 export default function LiveTrackingScreen({ route }: any) {
-  // PassengerMainScreen'den gönderilen routeId'yi alıyoruz
   const { routeId } = route.params || {};
-
-  const [driverLocation, setDriverLocation] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
+  const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  
+  // Şoförü ilk kez gördüğümüzü takip etmek için bir Referans oluşturuyoruz
+  const driverSeen = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
-
     const initConnection = async () => {
       try {
-        // Token'ı navigation props'tan değil, doğrudan cihaz hafızasından güvenle çekiyoruz
-        const token = await storageService.getToken(); 
+        const token = await storageService.getToken();
         if (!token || !routeId) return;
 
         await startSignalRConnection(token);
@@ -34,10 +28,14 @@ export default function LiveTrackingScreen({ route }: any) {
 
         subscribeToLocationUpdates((data: any) => {
           if (isMounted && data) {
-            setDriverLocation({
-              latitude: data.latitude,
-              longitude: data.longitude,
-            });
+            setDriverLocation({ latitude: data.latitude, longitude: data.longitude });
+            
+            // Şoförden İLK DEFA konum aldığımızda, ona tekrar "Ben buradayım" diyoruz.
+            // Bu sayede şoför bizden SONRA girmiş olsa bile bizi haritasında kesinlikle görür!
+            if (!driverSeen.current) {
+              driverSeen.current = true;
+              joinRoute(routeId); // Backend'i yormadan sadece tetikleme yapar
+            }
           }
         });
       } catch (error) {
@@ -58,20 +56,10 @@ export default function LiveTrackingScreen({ route }: any) {
       <MapView
         style={styles.map}
         provider={PROVIDER_DEFAULT}
-        initialRegion={{
-          latitude: 41.0082,
-          longitude: 28.9784,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        }}>
-        {/* Eğer SignalR'dan şoför konumu geldiyse haritada MAVİ PİN olarak göster */}
+        initialRegion={{ latitude: 41.0082, longitude: 28.9784, latitudeDelta: 0.05, longitudeDelta: 0.05 }}
+      >
         {driverLocation && (
-          <Marker
-            coordinate={driverLocation}
-            title="Servis Aracı"
-            description="Canlı Konum"
-            pinColor="blue"
-          />
+          <Marker coordinate={driverLocation} title="Servis Aracı" description="Canlı Konum" pinColor="blue" />
         )}
       </MapView>
     </View>

@@ -87,15 +87,20 @@ export const stopSignalRConnection = async () => {
 };
 export const subscribeToPassengerActivity = (
   onActive: (passengerId: string) => void,
-  onInactive: (passengerId: string) => void,
+  onInactive: (passengerId: string) => void
 ) => {
   if (connection) {
-    // Çift dinlemeyi önlemek için önce temizle
     connection.off("PassengerActive");
+    connection.off("passengeractive");
     connection.off("PassengerInactive");
-
-    // Odaya giren ve çıkan yolcuların ID'lerini yakala
+    connection.off("passengerinactive");
+    
+    // Girenler (Hem büyük hem küçük harf dinliyoruz)
     connection.on("PassengerActive", onActive);
+    connection.on("passengeractive", onActive);
+    
+    // Çıkanlar (Hem büyük hem küçük harf dinliyoruz)
     connection.on("PassengerInactive", onInactive);
+    connection.on("passengerinactive", onInactive);
   }
 };
