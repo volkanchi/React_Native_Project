@@ -127,6 +127,13 @@ namespace ServisTakipApi.Services
                 return Response<bool>.Fail("Silme işlemi sırasında bir hata oluştu: " + ex.Message);
             }
         }
+        public async Task<Response<User>> GetProfileAsync(Guid userId)
+        {
+            var user = await _userRepository.GetUserByIdAsync(userId);
+            if (user == null)
+                return Response<User>.Fail("Kullanıcı bulunamadı.");
 
+            return Response<User>.Successful("Profil bilgileri getirildi.", user);
+        }
     }
 }

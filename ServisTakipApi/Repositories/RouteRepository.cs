@@ -154,7 +154,7 @@ namespace ServisTakipApi.Repositories
             return await _context.Routes
                 .Include(r => r.Stops)
                 .Include(r => r.Vehicle)
-                .Include(r => r.Driver).ThenInclude(d => d.User)
+                .Include(r => r.Driver).ThenInclude(d => d!.User)
                 .Where(r => r.Stops.Any(s => s.PassengerId == passengerId) && !r.Deleted)
                 .AsNoTracking()
                 .ToListAsync();

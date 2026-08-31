@@ -62,7 +62,7 @@ namespace ServisTakipApi.Controllers
             }
         }
 
-        [Authorize] 
+        [Authorize]
         [HttpPut("update-profile")]
         public async Task<IActionResult> UpdateProfile([FromBody] UserUpdateDto updateDto)
         {
@@ -109,6 +109,17 @@ namespace ServisTakipApi.Controllers
             {
                 return BadRequest(Response<bool>.Fail(ex.Message));
             }
+        }
+        [HttpGet("my-profile")]
+        [Authorize]
+        public async Task<IActionResult> GetMyProfile()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized(Response<string>.Fail("Oturum geçersiz."));
+
+            var result = await _userService.GetProfileAsync(Guid.Parse(userIdClaim));
+            return result.Success ? Ok(result) : BadRequest(result);
         }
     }
 }

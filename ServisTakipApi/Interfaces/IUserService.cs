@@ -11,5 +11,6 @@ namespace ServisTakipApi.Interfaces
         Task<Response<string>> LoginUserAsync(UserLoginDto loginDto);
         Task<Response<User>> UpdateUserAsync(Guid userId, UserUpdateDto updateDto, Guid actionUserId);
         Task<Response<bool>> DeleteUserAsync(Guid userId, Guid actionUserId);
+        Task<Response<User>> GetProfileAsync(Guid userId);
     }
 }
