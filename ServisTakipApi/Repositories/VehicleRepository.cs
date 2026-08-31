@@ -30,34 +30,35 @@ namespace ServisTakipApi.Repositories
         public async Task<IEnumerable<Vehicle>> GetVehiclesByCompanyIdAsync(Guid companyId)
         {
             return await _context.Vehicles
-                .Where(v => v.CompanyId == companyId && !v.Deleted) 
+                .Where(v => v.CompanyId == companyId && !v.Deleted)
                 .AsNoTracking()
                 .ToListAsync();
         }
 
         public async Task<bool> AssignDriverAsync(Guid driverId, Guid vehicleId, Guid companyId)
         {
-            var vehicleExists = await _context.Vehicles.AnyAsync(v =>
+            // 1. Atanacak aracı tam nesne olarak çekiyoruz (Sadece Any ile kontrol etmiyoruz)
+            var vehicle = await _context.Vehicles.FirstOrDefaultAsync(v =>
                 v.Id == vehicleId && v.CompanyId == companyId && !v.Deleted);
-            if (!vehicleExists)
-                return false;
 
+            if (vehicle == null) return false;
+
+            // 2. Şoförü buluyoruz (Include ile User tablosunu da bağlıyoruz)
             var driver = await _context.Drivers
-                .Join(_context.Users,
-                    profile => profile.UserId,
-                    user => user.Id,
-                    (profile, user) => new { Profile = profile, User = user })
-                .Where(x => x.Profile.Id == driverId &&
-                            x.User.CompanyId == companyId &&
-                            x.User.Role == UserRole.Sofor &&
-                            !x.User.Deleted)
-                .Select(x => x.Profile)
-                .FirstOrDefaultAsync();
+                .Include(d => d.User)
+                .FirstOrDefaultAsync(d =>
+                    d.Id == driverId &&
+                    d.User.CompanyId == companyId &&
+                    d.User.Role == UserRole.Sofor &&
+                    !d.User.Deleted);
 
-            if (driver == null)
-                return false;
+            if (driver == null) return false;
 
+            // 3. Şoför tablosundaki DİĞER BİLGİLERİ araç ile senkronize et
             driver.VehicleId = vehicleId;
+            driver.PlateNumber = vehicle.PlateNumber; // Araç plakası şoföre kopyalandı
+            driver.Capacity = vehicle.Capacity;       // Araç kapasitesi şoföre kopyalandı
+
             return true;
         }
 

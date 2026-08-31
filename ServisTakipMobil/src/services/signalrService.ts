@@ -1,9 +1,11 @@
 import * as signalR from "@microsoft/signalr";
-import { SIGNALR_HUB_URL } from '../constants/config';
+import { SIGNALR_HUB_URL } from "../constants/config";
 
 let connection: signalR.HubConnection | null = null;
 
-export const startSignalRConnection = async (token: string): Promise<signalR.HubConnection> => {
+export const startSignalRConnection = async (
+  token: string,
+): Promise<signalR.HubConnection> => {
   if (connection && connection.state === signalR.HubConnectionState.Connected) {
     return connection;
   }
@@ -69,7 +71,7 @@ export const leaveRoute = async (routeId: string) => {
 };
 
 export const subscribeToLocationUpdates = (
-  callback: (location: any) => void
+  callback: (location: any) => void,
 ) => {
   if (connection) {
     connection.off("ReceiveLocationUpdate"); // Çift dinlemeyi önlemek için önceki listener'ı temizle
@@ -81,5 +83,19 @@ export const stopSignalRConnection = async () => {
   if (connection) {
     await connection.stop();
     connection = null;
+  }
+};
+export const subscribeToPassengerActivity = (
+  onActive: (passengerId: string) => void,
+  onInactive: (passengerId: string) => void,
+) => {
+  if (connection) {
+    // Çift dinlemeyi önlemek için önce temizle
+    connection.off("PassengerActive");
+    connection.off("PassengerInactive");
+
+    // Odaya giren ve çıkan yolcuların ID'lerini yakala
+    connection.on("PassengerActive", onActive);
+    connection.on("PassengerInactive", onInactive);
   }
 };
