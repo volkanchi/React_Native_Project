@@ -11,7 +11,6 @@ namespace ServisTakipApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Firma")]
     public class RouteController : ControllerBase
     {
         private readonly IRouteService _routeService;
@@ -21,8 +20,9 @@ namespace ServisTakipApi.Controllers
             _routeService = routeService;
         }
 
-        [Authorize]
+        
         [HttpPost("create")]
+        [Authorize(Roles = "Firma")]
         public async Task<IActionResult> CreateRoute([FromBody] CreateRouteDto createDto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -34,8 +34,9 @@ namespace ServisTakipApi.Controllers
             var response = await _routeService.CreateRouteAsync(companyId.Value, createDto);
             return response.Success ? Ok(response) : BadRequest(response);
         }
-
+        
         [HttpPut("{routeId:guid}")]
+        [Authorize(Roles = "Firma")]
         public async Task<IActionResult> UpdateRoute(Guid routeId, [FromBody] UpdateRouteDto updateDto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -47,8 +48,9 @@ namespace ServisTakipApi.Controllers
             var response = await _routeService.UpdateRouteAsync(routeId, companyId.Value, updateDto);
             return response.Success ? Ok(response) : BadRequest(response);
         }
-
+        
         [HttpDelete("{routeId:guid}")]
+        [Authorize(Roles = "Firma")]
         public async Task<IActionResult> DeleteRoute(Guid routeId)
         {
             var companyId = GetCompanyId();
