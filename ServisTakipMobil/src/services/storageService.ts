@@ -4,6 +4,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Cihaz hafızasında veriyi tutacağımız anahtar (key) ismi
 const TOKEN_KEY = '@servis_takip_jwt_token';
 
+const isJwtLikeToken = (value: string): boolean => {
+  return /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value.trim());
+};
+
 export const storageService = {
   // Token'ı cihaza kaydeder (Login ve Register sonrası kullanılır)
   saveToken: async (token: string): Promise<boolean> => {
@@ -39,27 +43,24 @@ export const storageService = {
   
 };
 export const getUserRole = async (): Promise<string | null> => {
-  const token = await storageService.getToken();
-  if (!token) return null;
-
-  // Daha önce kaydedilmiş test veya bozuk değerler uygulama açılışını engellememeli.
-  if (token.trim().split('.').length !== 3) {
-    await storageService.removeToken();
-    return null;
-  }
-
   try {
-    const decodedToken: { exp?: number; role?: string; [key: string]: unknown } = jwtDecode(token);
-    if (decodedToken.exp && decodedToken.exp * 1000 <= Date.now()) {
-      await storageService.removeToken();
+    const token = await storageService.getToken();
+    if (!token || !isJwtLikeToken(token)) {
+      if (token) {
+        await storageService.removeToken();
+      }
       return null;
     }
 
-    const roleClaim = decodedToken['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || decodedToken.role;
-    return typeof roleClaim === 'string' ? roleClaim : null;
-  } catch {
-    // Geçersiz JWT, oturum yokmuş gibi ele alınır.
+    const decodedToken: any = jwtDecode(token);
+
+    // .NET 8 varsayılan Role Claim adresi veya direkt 'role' key'i
+    const role = decodedToken['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || decodedToken.role;
+
+    return role || null;
+  } catch (error) {
+    console.error('Token çözülürken hata:', error);
     await storageService.removeToken();
     return null;
   }
-}
+};

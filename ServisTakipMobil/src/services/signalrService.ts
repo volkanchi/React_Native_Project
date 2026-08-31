@@ -1,84 +1,85 @@
-import * as signalR from '@microsoft/signalr';
-import {SIGNALR_HUB_URL} from "../constants/config";
+import * as signalR from "@microsoft/signalr";
+import { SIGNALR_HUB_URL } from '../constants/config';
 
-let hubConnection: signalR.HubConnection | null = null;
+let connection: signalR.HubConnection | null = null;
 
-export const startSignalRConnection = async (token: string) => {
-  if (hubConnection && hubConnection.state !== signalR.HubConnectionState.Disconnected) {
-    return;
+export const startSignalRConnection = async (token: string): Promise<signalR.HubConnection> => {
+  if (connection && connection.state === signalR.HubConnectionState.Connected) {
+    return connection;
   }
 
-  hubConnection = new signalR.HubConnectionBuilder()
-    .withUrl(SIGNALR_HUB_URL, { accessTokenFactory: () => token })
-    .withAutomaticReconnect()
-    .configureLogging(signalR.LogLevel.Warning)
+  connection = new signalR.HubConnectionBuilder()
+    .withUrl(SIGNALR_HUB_URL, {
+      accessTokenFactory: () => token,
+      transport:
+        signalR.HttpTransportType.WebSockets |
+        signalR.HttpTransportType.LongPolling,
+    })
+    .withAutomaticReconnect([0, 2000, 5000, 10000])
+    .configureLogging(signalR.LogLevel.Information)
     .build();
 
   try {
-    await hubConnection.start();
-    console.log('✅ SignalR Bağlantısı Başarılı!');
-  } catch (error) {
-    console.error('❌ SignalR Bağlantı Hatası:', error);
+    await connection.start();
+    console.log("SignalR Connected.");
+  } catch (err) {
+    console.error("SignalR Connection Error: ", err);
+  }
+
+  return connection;
+};
+
+export const joinRoute = async (routeId: string) => {
+  if (connection && connection.state === signalR.HubConnectionState.Connected) {
+    await connection.invoke("JoinRouteGroup", routeId);
+  } else {
+    console.warn("SignalR bağlı değil, gruba katılınamadı.");
+  }
+};
+
+// Şoför: Anlık konumunu LocationHub üzerinden ilgili rota grubuna basar
+// (Backend: LocationHub.SendLocationUpdate, sadece "Driver"/"Sofor" rolü yetkilidir)
+export const sendLocationUpdate = async (locationDto: {
+  routeId: string;
+  latitude: number;
+  longitude: number;
+  speed?: number | null;
+  heading?: number | null;
+  timestamp?: string;
+}): Promise<boolean> => {
+  if (connection && connection.state === signalR.HubConnectionState.Connected) {
+    try {
+      await connection.invoke("SendLocationUpdate", {
+        ...locationDto,
+        timestamp: locationDto.timestamp || new Date().toISOString(),
+      });
+      return true;
+    } catch (err) {
+      console.error("Konum gönderme hatası:", err);
+      return false;
+    }
+  }
+  return false;
+};
+
+export const leaveRoute = async (routeId: string) => {
+  if (connection && connection.state === signalR.HubConnectionState.Connected) {
+    await connection.invoke("LeaveRouteGroup", routeId);
+  }
+};
+
+export const subscribeToLocationUpdates = (
+  callback: (location: any) => void
+) => {
+  if (connection) {
+    connection.off("ReceiveLocationUpdate"); // Çift dinlemeyi önlemek için önceki listener'ı temizle
+    connection.on("ReceiveLocationUpdate", callback);
   }
 };
 
 export const stopSignalRConnection = async () => {
-  if (hubConnection && hubConnection.state !== signalR.HubConnectionState.Disconnected) {
-    try {
-      await hubConnection.stop();
-      hubConnection = null;
-      console.log('🛑 SignalR Bağlantısı Güvenli Şekilde Kapatıldı.');
-    } catch (error) {
-      console.error('❌ SignalR Kapatılırken Hata:', error);
-    }
-  }
-};
-
-// YOLCU VEYA ŞOFÖR GRUBA KATILIR
-export const joinRoute = async (routeId: string) => {
-  if (hubConnection?.state === signalR.HubConnectionState.Connected) {
-    try {
-      // C# tarafındaki metod adı: JoinRouteGroup
-      await hubConnection.invoke('JoinRouteGroup', routeId);
-      console.log(`🔗 Rotaya (Gruba) Katılındı: ${routeId}`);
-    } catch (error) {
-      console.error('❌ Rotaya katılma hatası:', error);
-    }
-  } else {
-    console.warn('⚠️ SignalR bağlı değil, rotaya katılınamadı.');
-  }
-};
-
-// ŞOFÖR KONUM GÖNDERİR
-export const sendLocationUpdate = async (routeId: string, latitude: number, longitude: number) => {
-  if (hubConnection?.state === signalR.HubConnectionState.Connected) {
-    try {
-      // C# tarafındaki DriverLocationDto nesnesine uygun şekilde obje gönderiyoruz
-      const locationDto = {
-        routeId: routeId, 
-        latitude: latitude,
-        longitude: longitude
-      };
-      
-      // C# tarafındaki metod adı: SendLocationUpdate
-      await hubConnection.invoke('SendLocationUpdate', locationDto);
-    } catch (error) {
-      console.error('❌ Konum gönderme hatası:', error);
-    }
-  }
-};
-
-// YOLCU KONUM DİNLER
-export const subscribeToLocationUpdates = (callback: (data: { latitude: number, longitude: number }) => void) => {
-  if (hubConnection) {
-    hubConnection.off('ReceiveLocationUpdate');
-    // C# tarafındaki fırlatma adı: ReceiveLocationUpdate
-    hubConnection.on('ReceiveLocationUpdate', callback);
-  }
-};
-
-export const unsubscribeFromLocationUpdates = () => {
-  if (hubConnection) {
-    hubConnection.off('ReceiveLocationUpdate');
+  if (connection) {
+    await connection.stop();
+    connection = null;
   }
 };

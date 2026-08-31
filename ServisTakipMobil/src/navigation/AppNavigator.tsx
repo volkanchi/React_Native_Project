@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import { ActivityIndicator, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AuthScreen from "../screens/AuthScreen";
 import PassengerMainScreen from "../screens/PassengerMainScreen";
 import LiveTrackingScreen from "../screens/LiveTrackingScreen";
-import DriverMainScreen from '../screens/DriverMainScreen';
+import DriverMainScreen from "../screens/DriverMainScreen";
 import { getUserRole, storageService } from "../services/storageService";
+
+// Backend (TokenService.cs) rol claim'ini UserRole enum'unun ToString() hâliyle basıyor:
+// Yolcu | Sofor | Firma | Admin. Test/mock login akışında ise "Driver"/"Passenger" değerleri
+// üretilebiliyor; ikisini birden karşılayalım ki gerçek API ile de mock veriyle de doğru
+// panel açılsın.
+const isDriverRole = (role: string | null) => role === "Sofor" || role === "Driver";
 
 type RootStackParamList = {
   Login: undefined;
@@ -37,13 +42,13 @@ export default function AppNavigator() {
   // Çıkış yapıldığında veya giriş yapıldığında tetiklenecek fonksiyon
   // Bunu sayfalara props veya Context olarak geçebiliriz
   const handleLoginSuccess = async (token: string) => {
-    const saved = await storageService.saveToken(token);
-    if (saved) await checkUserStatus();
+    await storageService.saveToken(token); // Önce gelen token'ı cihaza kaydet
+    checkUserStatus(); // Sonra rolü kontrol edip doğru Stack'e yönlendir
   };
 
   const handleLogout = async () => {
     await storageService.removeToken(); // token'ı cihazdan tamamen sil
-    await checkUserStatus();
+    checkUserStatus(); // Sonra durumu güncelle token silindiği için AuthStack'e düşecek
   };
   if (isLoading) {
     return (
@@ -54,13 +59,12 @@ export default function AppNavigator() {
   }
 
   return (
-    
-      <Stack.Navigator key={userRole || "guest"} screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!userRole ? (
         <Stack.Screen name="Login">
           {() => <AuthScreen onLoginSuccess={handleLoginSuccess} />}
         </Stack.Screen>
-      ) : userRole === "Sofor" || userRole === "Driver" ? (
+      ) : isDriverRole(userRole) ? (
         <Stack.Screen name="DriverMain">
           {() => <DriverMainScreen onLogout={handleLogout} />}
         </Stack.Screen>
@@ -80,8 +84,7 @@ export default function AppNavigator() {
           <Stack.Screen name="LiveTracking" component={LiveTrackingScreen} />
         </>
       )}
-      </Stack.Navigator>
-    
+    </Stack.Navigator>
   );
 }
 

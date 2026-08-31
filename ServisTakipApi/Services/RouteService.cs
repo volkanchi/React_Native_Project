@@ -36,7 +36,7 @@ namespace ServisTakipApi.Services
                     companyId,
                     createDto.VehicleId,
                     createDto.DriverId,
-                    createDto.Stops.Select(s => s.PassengerId));
+                    Array.Empty<Guid>());
                 if (resourceError != null)
                     return Response<RouteResponseDto>.Fail(resourceError);
 
@@ -67,12 +67,7 @@ namespace ServisTakipApi.Services
                     VehicleId = createDto.VehicleId,
                     DriverId = createDto.DriverId,
                     RoutePath = routePath,
-                    Stops = createDto.Stops.Select(s => new RouteStop
-                    {
-                        StopOrder = s.StopOrder,
-                        PassengerId = s.PassengerId,
-                        Location = _geometryFactory.CreatePoint(new Coordinate(s.Location.Longitude, s.Location.Latitude))
-                    }).ToList()
+                    Stops = new List<RouteStop>()
                 };
 
                 // Veritabanı kayıt işi
@@ -145,21 +140,10 @@ namespace ServisTakipApi.Services
             if (createDto.PathCoordinates == null || createDto.PathCoordinates.Count < 2)
                 return "Rota yolu en az iki koordinat içermelidir.";
 
-            if (createDto.Stops == null)
-                return "Durak listesi zorunludur.";
-
-            if (createDto.Stops.Any(s => s.Location == null))
-                return "Her durağın konumu zorunludur.";
-
             var coordinates = createDto.PathCoordinates.Concat(createDto.Stops.Select(s => s.Location));
             if (coordinates.Any(c => c == null || !double.IsFinite(c.Latitude) || !double.IsFinite(c.Longitude) ||
                 c.Latitude < -90 || c.Latitude > 90 || c.Longitude < -180 || c.Longitude > 180))
                 return "Koordinatlar geçerli enlem ve boylam değerleri içermelidir.";
-
-            if (createDto.Stops.Any(s => s.StopOrder < 1) ||
-                createDto.Stops.GroupBy(s => s.StopOrder).Any(g => g.Count() > 1))
-                return "Durak sıraları pozitif ve benzersiz olmalıdır.";
-
             return null;
         }
 
@@ -206,7 +190,8 @@ namespace ServisTakipApi.Services
                 RouteId = route.Id,
                 PassengerId = passengerId,
                 IsActive = true,
-                Location = _geometryFactory.CreatePoint(new Coordinate(joinDto.Location.Longitude, joinDto.Location.Latitude))
+                // Konumu başlangıçta 0,0 olarak belirliyoruz. Kullanıcı sonra güncelleyecek.
+                Location = _geometryFactory.CreatePoint(new Coordinate(0, 0))
             };
 
             // 2. Yeni durağı rotanın hafızadaki durak listesine ekle
@@ -281,6 +266,24 @@ namespace ServisTakipApi.Services
             {
                 item.Stop.StopOrder = order++;
             }
+        }
+        public async Task<Response<IEnumerable<object>>> GetPassengerRoutesAsync(Guid passengerId)
+        {
+            var routes = await _routeRepository.GetRoutesByPassengerIdAsync(passengerId);
+
+            // Frontend'in liste ekranında ihtiyaç duyacağı özet bilgileri hazırlıyoruz
+            var result = routes.Select(r => new
+            {
+                Id = r.Id,
+                Name = r.Name,
+                RouteCode = r.RouteCode,
+                Plate = r.Vehicle?.PlateNumber ?? "Araç Yok",
+                DriverName = r.Driver != null ? $"{r.Driver.User.Name} {r.Driver.User.Surname}" : "Atanmadı",
+                Capacity = r.Vehicle?.Capacity ?? 0,
+                Occupancy = r.Stops.Count(s => s.IsActive)
+            });
+
+            return Response<IEnumerable<object>>.Successful("Rotalar başarıyla getirildi.", result);
         }
 
     }

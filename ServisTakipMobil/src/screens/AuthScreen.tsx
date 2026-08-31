@@ -9,18 +9,17 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Alert,
+  Alert
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons'; 
 import { authService } from '../services/authService';
 
 interface AuthScreenProps {
-  onLoginSuccess: (token: string, userData: any) => void;
+  onLoginSuccess: (token: string) => void;
 }
 
 export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   const [isLoginView, setIsLoginView] = useState(true);
-  const [loginRole, setLoginRole] = useState<'Passenger' | 'Driver'>('Passenger');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -34,25 +33,22 @@ export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const handleLogin = async () => {
-    // 1. KONTROL: Alanlar boş mu?
     if (!email || !password) {
       Alert.alert('Uyarı', 'Lütfen email ve şifre alanlarını doldurun.');
-      return; // Boşsa işlemi burada durdur
+      return;
     }
-    
+
     setLoading(true);
-    
+
     try {
-      const response = await authService.login({
-        email: email.trim(),
-        password,
-      });
+      const response = await authService.login({ email, password });
 
       if (response.success && response.data) {
-        onLoginSuccess(response.data, { email: email.trim() });
-      } else {
-        Alert.alert('Giriş Başarısız', response.message || 'Bilgilerinizi kontrol edin.');
+        onLoginSuccess(response.data);
+        return;
       }
+
+      Alert.alert('Giriş Başarısız', response.message || 'Bilgilerinizi kontrol edin.');
     } catch (error) {
       Alert.alert('Hata', 'Sunucuya bağlanılamadı.');
     } finally {
@@ -62,30 +58,32 @@ export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
 
   const handleRegister = async () => {
     if (!agreedToTerms) return;
+
     if (!firstName || !lastName || !username || !email || !phone || !password) {
-      Alert.alert('Uyarı', 'Lütfen tüm alanları doldurun.');
+      Alert.alert('Uyarı', 'Lütfen tüm kayıt alanlarını doldurun.');
       return;
     }
+
     setLoading(true);
+
     try {
       const response = await authService.register({
-        name: firstName.trim(),
-        surname: lastName.trim(),
-        username: username.trim(),
-        email: email.trim(),
-        phoneNumber: phone.trim(),
+        name: firstName,
+        surname: lastName,
+        username,
+        email,
+        phoneNumber: phone,
         password,
       });
 
       if (response.success) {
-        Alert.alert('Başarılı', 'Kayıt tamamlandı. Şimdi giriş yapabilirsiniz.');
+        Alert.alert('Başarılı', 'Hesabınız oluşturuldu. Giriş yapabilirsiniz.');
         setIsLoginView(true);
-        setPassword('');
-        setAgreedToTerms(false);
-      } else {
-        Alert.alert('Kayıt Başarısız', response.message || 'Kayıt tamamlanamadı.');
+        return;
       }
-    } catch {
+
+      Alert.alert('Kayıt Başarısız', response.message || 'Kayıt sırasında bir hata oluştu.');
+    } catch (error) {
       Alert.alert('Hata', 'Sunucuya bağlanılamadı.');
     } finally {
       setLoading(false);
@@ -118,26 +116,6 @@ export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Welcome back</Text>
               <Text style={styles.cardSubtitle}>Sign in to your account to continue</Text>
-
-              {/* ROL SEÇİMİ (SEKME) */}
-              <View style={styles.roleToggleContainer}>
-                <TouchableOpacity 
-                  style={[styles.roleTab, loginRole === 'Passenger' && styles.roleTabActive]}
-                  onPress={() => setLoginRole('Passenger')}
-                >
-                  <Text style={[styles.roleTabText, loginRole === 'Passenger' && styles.roleTabTextActive]}>
-                    Personel
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.roleTab, loginRole === 'Driver' && styles.roleTabActive]}
-                  onPress={() => setLoginRole('Driver')}
-                >
-                  <Text style={[styles.roleTabText, loginRole === 'Driver' && styles.roleTabTextActive]}>
-                    Şoför
-                  </Text>
-                </TouchableOpacity>
-              </View>
 
               {/* E-MAIL */}
               <Text style={styles.inputLabel}>Email address</Text>

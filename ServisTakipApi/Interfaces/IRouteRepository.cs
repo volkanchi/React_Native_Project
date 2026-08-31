@@ -20,11 +20,8 @@ namespace ServisTakipApi.Interfaces
         Task<bool> RemoveRouteStopAsync(RouteStop stop);
         Task AddRouteStopAndUpdateOrdersAsync(RouteStop newStop, IEnumerable<RouteStop> existingStops);
         Task RemoveRouteStopAndUpdateOrdersAsync(RouteStop stop, IEnumerable<RouteStop> remainingStops);
-
-        // Rotayı ID'si ile ve duraklarıyla birlikte getirme
         Task<Models.Route?> GetRouteWithStopsByIdAsync(Guid routeId);
-
-        // Birden fazla durağı aynı anda güncelleme (Toplu StopOrder güncellemesi için)
         Task UpdateRouteStopsAsync(IEnumerable<RouteStop> stops);
+        Task<IEnumerable<Models.Route>> GetRoutesByPassengerIdAsync(Guid passengerId);
     }
 }

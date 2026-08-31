@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
-import { storageService } from '../services/storageService'; 
+import { storageService } from '../services/storageService'; // Token'ı kendisi alacak
+
 import {
+  joinRoute,
   startSignalRConnection,
   stopSignalRConnection,
-  joinRoute,
-  subscribeToLocationUpdates, // Dinleme fonksiyonunu çektik
+  subscribeToLocationUpdates,
 } from '../services/signalrService';
 
+// Navigation üzerinden gelecek parametreler (routeId)
 export default function LiveTrackingScreen({ route }: any) {
+  // PassengerMainScreen'den gönderilen routeId'yi alıyoruz
   const { routeId } = route.params || {};
 
   const [driverLocation, setDriverLocation] = useState<{
@@ -22,15 +25,15 @@ export default function LiveTrackingScreen({ route }: any) {
 
     const initConnection = async () => {
       try {
+        // Token'ı navigation props'tan değil, doğrudan cihaz hafızasından güvenle çekiyoruz
         const token = await storageService.getToken(); 
         if (!token || !routeId) return;
 
         await startSignalRConnection(token);
         await joinRoute(routeId);
 
-        // Yolcu, sadece gelen veriyi dinliyor.
         subscribeToLocationUpdates((data: any) => {
-          if (isMounted && data && data.latitude && data.longitude) {
+          if (isMounted && data) {
             setDriverLocation({
               latitude: data.latitude,
               longitude: data.longitude,
@@ -38,7 +41,7 @@ export default function LiveTrackingScreen({ route }: any) {
           }
         });
       } catch (error) {
-        console.error('SignalR Bağlantı Hatası:', error);
+        console.error('SignalR Connection Error:', error);
       }
     };
 
@@ -61,6 +64,7 @@ export default function LiveTrackingScreen({ route }: any) {
           latitudeDelta: 0.05,
           longitudeDelta: 0.05,
         }}>
+        {/* Eğer SignalR'dan şoför konumu geldiyse haritada MAVİ PİN olarak göster */}
         {driverLocation && (
           <Marker
             coordinate={driverLocation}

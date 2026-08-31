@@ -6,6 +6,7 @@ using System.Security.Claims;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using ServisTakipApi.DTOs.Response;
 
 namespace ServisTakipApi.Controllers
 {
@@ -52,6 +53,18 @@ namespace ServisTakipApi.Controllers
         {
             var claim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
             return Guid.TryParse(claim, out passengerId);
+        }
+        [HttpGet("my-routes")]
+        [Authorize(Roles = "Yolcu")]
+        public async Task<IActionResult> GetMyRoutes()
+        {
+            // Token içinden giriş yapan yolcunun ID'sini alıyoruz
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized(Response<string>.Fail("Kullanıcı kimliği doğrulanamadı."));
+
+            var result = await _routeService.GetPassengerRoutesAsync(Guid.Parse(userIdClaim));
+            return result.Success ? Ok(result) : BadRequest(result);
         }
     }
 }
