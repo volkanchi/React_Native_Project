@@ -6,6 +6,7 @@ import PassengerMainScreen from "../screens/PassengerMainScreen";
 import LiveTrackingScreen from "../screens/LiveTrackingScreen";
 import DriverMainScreen from "../screens/DriverMainScreen";
 import { getUserRole, storageService } from "../services/storageService";
+import SelectStopScreen from "../screens/SelectStopScreen";
 
 // Backend (TokenService.cs) rol claim'ini UserRole enum'unun ToString() hâliyle basıyor:
 // Yolcu | Sofor | Firma | Admin. Test/mock login akışında ise "Driver"/"Passenger" değerleri
@@ -18,6 +19,7 @@ type RootStackParamList = {
   PassengerMain: undefined;
   LiveTracking: { routeId: string };
   DriverMain: undefined;
+  SelectStop: { routeCode: string; routeName: string; pathCoordinates: any[] };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -77,11 +79,15 @@ export default function AppNavigator() {
                 onNavigateToLiveTracking={(routeId) =>
                   navigation.navigate("LiveTracking", { routeId })
                 }
+                onNavigateToSelectStop={(routeCode, routeName, pathCoords) =>
+                  navigation.navigate("SelectStop", { routeCode, routeName, pathCoordinates: pathCoords })
+                }
                 onLogout={handleLogout}
               />
             )}
           </Stack.Screen>
           <Stack.Screen name="LiveTracking" component={LiveTrackingScreen} />
+          <Stack.Screen name="SelectStop" component={SelectStopScreen} />
         </>
       )}
     </Stack.Navigator>

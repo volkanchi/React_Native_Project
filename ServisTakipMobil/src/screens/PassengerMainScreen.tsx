@@ -15,15 +15,18 @@ import { routeService } from "../services/routeService";
 import { storageService } from "../services/storageService";
 import ProfileUpdateModal from "../components/ProfileUpdateModal";
 
+
 interface PassengerMainScreenProps {
   user: any;
   onNavigateToLiveTracking: (routeId: string) => void;
+  onNavigateToSelectStop: (routeCode: string, routeName: string, pathCoords: any[]) => void; // BUNU EKLEYİN
   onLogout: () => void;
 }
 
-export default function PassengerMainScreen({
-  onNavigateToLiveTracking,
-  onLogout,
+export default function PassengerMainScreen({ 
+  onNavigateToLiveTracking, 
+  onNavigateToSelectStop, 
+  onLogout 
 }: PassengerMainScreenProps) {
   const [routeCode, setRouteCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -49,25 +52,23 @@ export default function PassengerMainScreen({
   };
 
   // 2. Yeni rotaya (odaya) katıl
-  const handleJoinRoute = async () => {
-    if (!routeCode.trim())
-      return Alert.alert("Uyarı", "Lütfen bir rota kodu giriniz.");
-
+  // 2. Rota kodunu gönderip önizleme (çizgi) verisini al ve Harita ekranına git
+  const handlePreviewRoute = async () => {
+    if (!routeCode.trim()) return Alert.alert('Uyarı', 'Lütfen bir rota kodu giriniz.');
+    
     setLoading(true);
     const token = await storageService.getToken();
     if (!token) return;
 
-    const result = await routeService.joinRoute(
-      { routeCode: routeCode.trim() },
-      token,
-    );
-
-    if (result.success) {
-      Alert.alert("Başarılı", "Rotaya başarıyla katıldınız!");
-      setRouteCode("");
-      loadMyRoutes(); // Listeyi yenile
+    // Direkt katılmak yerine önizleme verisini (harita çizgisini) çekiyoruz
+    const result = await routeService.previewRoute(routeCode.trim(), token);
+    
+    if (result.success && result.data) {
+      setRouteCode('');
+      // Navigasyon ile kullanıcıyı Durak Seçim Haritasına yolluyoruz
+      onNavigateToSelectStop(routeCode.trim(), result.data.name, result.data.pathCoordinates);
     } else {
-      Alert.alert("Hata", result.message || "Rota bulunamadı.");
+      Alert.alert('Hata', result.message || 'Rota bulunamadı.');
     }
     setLoading(false);
   };
@@ -165,7 +166,7 @@ export default function PassengerMainScreen({
             />
             <TouchableOpacity
               style={styles.joinButton}
-              onPress={handleJoinRoute}
+              onPress={handlePreviewRoute}
               disabled={loading}
             >
               {loading ? (
