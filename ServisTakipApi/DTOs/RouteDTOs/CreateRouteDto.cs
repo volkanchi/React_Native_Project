@@ -10,11 +10,8 @@ namespace ServisTakipApi.DTOs.RouteDTOs
         public required string Name { get; set; }
         public Guid VehicleId { get; set; }
         public Guid DriverId { get; set; }
-        
+
         // Tüm yolun çizimi için gereken koordinat listesi
-        public required List<CoordinateDto> PathCoordinates { get; set; } 
-        
-        // Güzergah üzerindeki duraklar
-        public required List<CreateRouteStopDto> Stops { get; set; }
+        public required List<CoordinateDto> PathCoordinates { get; set; }
     }
 }

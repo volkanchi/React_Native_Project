@@ -2,6 +2,7 @@ namespace ServisTakipApi.DTOs.RouteDTOs
 {
     public class JoinRouteDto
     {
-        public required string RouteCode { get; set; }
+        public string RouteCode { get; set; } = string.Empty;
+        public CoordinateDto Location { get; set; } = new CoordinateDto(); 
     }
 }

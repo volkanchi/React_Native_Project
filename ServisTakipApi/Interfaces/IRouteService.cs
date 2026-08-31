@@ -16,5 +16,6 @@ namespace ServisTakipApi.Interfaces
         Task<Response<bool>> LeaveRouteAsync(Guid passengerId, Guid routeId);
         Task<Response<IEnumerable<object>>> GetPassengerRoutesAsync(Guid passengerId);
         Task<Response<object>> GetDriverActiveRouteAsync(Guid userId);
+        Task<Response<object>> PreviewRouteForJoinAsync(string routeCode); // YENİ EKLENEN
     }
 }

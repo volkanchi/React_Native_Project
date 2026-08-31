@@ -36,16 +36,19 @@ namespace ServisTakipApi.Services
                     companyId,
                     createDto.VehicleId,
                     createDto.DriverId,
-                    Array.Empty<Guid>());
+                    Array.Empty<Guid>()); // Sıfır rota oluşturulduğunda yolcu (Stops) olmaz
+
                 if (resourceError != null)
                     return Response<RouteResponseDto>.Fail(resourceError);
 
-                var coordinates = createDto.PathCoordinates
-                    .Select(c => new Coordinate(c.Longitude, c.Latitude))
-                    .ToArray();
-
-                var routePath = _geometryFactory.CreateLineString(coordinates);
-
+                LineString? routePath = null;
+                if (createDto.PathCoordinates != null && createDto.PathCoordinates.Count >= 2)
+                {
+                    var coordinates = createDto.PathCoordinates
+                        .Select(c => new Coordinate(c.Longitude, c.Latitude))
+                        .ToArray();
+                    routePath = _geometryFactory.CreateLineString(coordinates);
+                }
 
                 var plateNumber = await _routeRepository.GetVehiclePlateByIdAsync(createDto.VehicleId, companyId);
                 if (string.IsNullOrEmpty(plateNumber))
@@ -53,12 +56,10 @@ namespace ServisTakipApi.Services
                     return Response<RouteResponseDto>.Fail("Araç bulunamadı veya plakası geçersiz.");
                 }
 
-                // 2. Plakadaki boşlukları temizle (Örn: "34 ABC 123" -> "34ABC123") ve 4 haneli rastgele sayı üret
                 var cleanPlate = plateNumber.Replace(" ", "").ToUpper();
-                var randomSuffix = new Random().Next(1000, 10000).ToString(); // 1000 ile 9999 arası sayı
-                var generatedRouteCode = $"{cleanPlate}-{randomSuffix}"; // Örn: 34ABC123-8472
+                var randomSuffix = new Random().Next(1000, 10000).ToString();
+                var generatedRouteCode = $"{cleanPlate}-{randomSuffix}";
 
-                // 3. Rota Nesnesini Oluştur
                 var newRoute = new Models.Route
                 {
                     RouteCode = generatedRouteCode,
@@ -67,12 +68,10 @@ namespace ServisTakipApi.Services
                     VehicleId = createDto.VehicleId,
                     DriverId = createDto.DriverId,
                     RoutePath = routePath,
-                    Stops = new List<RouteStop>()
+                    Stops = new List<RouteStop>() // Başlangıçta duraklar tamamen boş
                 };
 
-                // Veritabanı kayıt işi
                 var createdRoute = await _routeRepository.AddRouteAsync(newRoute);
-
                 return Response<RouteResponseDto>.Successful("Rota başarıyla oluşturuldu.", ToResponse(createdRoute));
             }
             catch (Exception ex)
@@ -137,13 +136,10 @@ namespace ServisTakipApi.Services
             if (createDto == null || string.IsNullOrWhiteSpace(createDto.Name))
                 return "Rota adı zorunludur.";
 
-            if (createDto.PathCoordinates == null || createDto.PathCoordinates.Count < 2)
-                return "Rota yolu en az iki koordinat içermelidir.";
+            // Harita çizgisi çizilecekse en az 2 nokta olmalı, ancak hiç çizilmeyebilir (null gelebilir)
+            if (createDto.PathCoordinates != null && createDto.PathCoordinates.Count == 1)
+                return "Eğer rota yolu çizilecekse en az iki koordinat içermelidir.";
 
-            var coordinates = createDto.PathCoordinates.Concat(createDto.Stops.Select(s => s.Location));
-            if (coordinates.Any(c => c == null || !double.IsFinite(c.Latitude) || !double.IsFinite(c.Longitude) ||
-                c.Latitude < -90 || c.Latitude > 90 || c.Longitude < -180 || c.Longitude > 180))
-                return "Koordinatlar geçerli enlem ve boylam değerleri içermelidir.";
             return null;
         }
 
@@ -184,23 +180,20 @@ namespace ServisTakipApi.Services
             if (route.Stops.Any(s => s.PassengerId == passengerId))
                 return Response<Guid>.Fail("Bu servise zaten kayıtlısınız.");
 
-            // 1. Yeni durağı oluştur
+            // Frontend'den gelen seçilmiş konumu kullanıyoruz
             var newStop = new RouteStop
             {
                 RouteId = route.Id,
                 PassengerId = passengerId,
                 IsActive = true,
-                // Konumu başlangıçta 0,0 olarak belirliyoruz. Kullanıcı sonra güncelleyecek.
-                Location = _geometryFactory.CreatePoint(new Coordinate(0, 0))
+                Location = _geometryFactory.CreatePoint(new Coordinate(joinDto.Location.Longitude, joinDto.Location.Latitude))
             };
 
-            // 2. Yeni durağı rotanın hafızadaki durak listesine ekle
             route.Stops.Add(newStop);
 
-            // 3. Tüm durakları harita çizgisine göre yeniden sırala (StopOrder'ları günceller)
+            // NetTopologySuite ile konumu harita çizgisine (Polyline) en yakın yere yapıştırıp sıraya dizer
             ReorderRouteStops(route);
 
-            // 4. Veritabanına kaydet
             await _routeRepository.AddRouteStopAndUpdateOrdersAsync(
                 newStop,
                 route.Stops.Where(s => s.Id != newStop.Id));
@@ -313,6 +306,30 @@ namespace ServisTakipApi.Services
             };
 
             return Response<object>.Successful("Aktif rota getirildi.", result);
+        }
+        public async Task<Response<object>> PreviewRouteForJoinAsync(string routeCode)
+        {
+            var route = await _routeRepository.GetRouteByCodeAsync(routeCode);
+            if (route == null)
+                return Response<object>.Fail("Geçersiz servis kodu.");
+
+            var pathCoordinates = route.RoutePath == null
+                ? new List<object>()
+                : route.RoutePath.Coordinates
+                    .Select(c => (object)new
+                    {
+                        Latitude = c.Y,
+                        Longitude = c.X
+                    })
+                    .ToList();
+
+            var result = new
+            {
+                Name = route.Name,
+                PathCoordinates = pathCoordinates
+            };
+
+            return Response<object>.Successful("Rota önizlemesi getirildi.", result);
         }
     }
 }
