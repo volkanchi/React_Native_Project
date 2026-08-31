@@ -160,5 +160,19 @@ namespace ServisTakipApi.Repositories
                 .ToListAsync();
 
         }
+        public async Task<Models.Route?> GetActiveRouteByDriverUserIdAsync(Guid userId)
+        {
+            // Şoför (Driver) tablosu ile Rota (Route) tablosunu UserId üzerinden eşleştirerek aktif rotayı buluyoruz
+            return await _context.Routes
+                .Include(r => r.Vehicle)
+                .Include(r => r.Stops)
+                .Join(_context.Drivers,
+                      route => route.DriverId,
+                      driver => driver.Id,
+                      (route, driver) => new { Route = route, Driver = driver })
+                .Where(x => x.Driver.UserId == userId && !x.Route.Deleted)
+                .Select(x => x.Route)
+                .FirstOrDefaultAsync();
+        }
     }
 }

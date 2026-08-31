@@ -285,6 +285,34 @@ namespace ServisTakipApi.Services
 
             return Response<IEnumerable<object>>.Successful("Rotalar başarıyla getirildi.", result);
         }
+        public async Task<Response<object>> GetDriverActiveRouteAsync(Guid userId)
+        {
+            var route = await _routeRepository.GetActiveRouteByDriverUserIdAsync(userId);
 
+            if (route == null)
+                return Response<object>.Fail("Üzerinize atanmış aktif bir rota bulunamadı.");
+
+            var result = new
+            {
+                RouteId = route.Id,
+                Name = route.Name,
+                RouteCode = route.RouteCode,
+                Plate = route.Vehicle?.PlateNumber ?? "Araç Atanmadı",
+                VehicleModel = route.Vehicle?.BrandAndModel ?? "Bilinmiyor",
+                Capacity = route.Vehicle?.Capacity ?? 0,
+                Stops = route.Stops.OrderBy(s => s.StopOrder).Select(s => new
+                {
+                    Id = s.Id,
+                    PassengerId = s.PassengerId,
+                    Label = $"Durak {s.StopOrder}", // İleride yolcu isimleri de çekilebilir
+                    Time = "Bekleniyor",
+                    Latitude = s.Location.Y,
+                    Longitude = s.Location.X,
+                    IsActive = s.IsActive
+                })
+            };
+
+            return Response<object>.Successful("Aktif rota getirildi.", result);
+        }
     }
 }

@@ -4,6 +4,7 @@ using ServisTakipApi.DTOs.Response;
 using ServisTakipApi.DTOs.RouteDTOs;
 using ServisTakipApi.Interfaces;
 using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace ServisTakipApi.Controllers
@@ -62,6 +63,17 @@ namespace ServisTakipApi.Controllers
         {
             var companyIdClaim = User.FindFirst("CompanyId")?.Value;
             return Guid.TryParse(companyIdClaim, out var companyId) ? companyId : null;
+        }
+        [HttpGet("driver-route")]
+        [Authorize(Roles = "Sofor")]
+        public async Task<IActionResult> GetDriverRoute()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized(Response<string>.Fail("Kullanıcı kimliği doğrulanamadı."));
+
+            var result = await _routeService.GetDriverActiveRouteAsync(Guid.Parse(userIdClaim));
+            return result.Success ? Ok(result) : BadRequest(result);
         }
     }
 }

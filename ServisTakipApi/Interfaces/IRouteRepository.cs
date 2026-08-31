@@ -1,3 +1,4 @@
+using ServisTakipApi.DTOs.Response;
 using ServisTakipApi.DTOs.RouteDTOs;
 using ServisTakipApi.Models;
 using System.Collections.Generic;
@@ -23,5 +24,6 @@ namespace ServisTakipApi.Interfaces
         Task<Models.Route?> GetRouteWithStopsByIdAsync(Guid routeId);
         Task UpdateRouteStopsAsync(IEnumerable<RouteStop> stops);
         Task<IEnumerable<Models.Route>> GetRoutesByPassengerIdAsync(Guid passengerId);
+        Task<Models.Route?> GetActiveRouteByDriverUserIdAsync(Guid userId);
     }
 }

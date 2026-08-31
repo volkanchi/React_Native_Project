@@ -84,4 +84,31 @@ export const routeService = {
       return { success: false, message: 'Bağlantı hatası.' };
     }
   },
+  getDriverRoute: async (token: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/Route/driver-route`, { // Controller adınıza göre /Route kısmını ayarlayın
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        }
+      });
+
+      const responseText = await response.text();
+      
+      if (!response.ok) {
+        return { success: false, message: `API Hatası (Status: ${response.status})` };
+      }
+
+      if (!responseText) {
+        return { success: false, message: 'Sunucudan boş yanıt döndü.' };
+      }
+
+      return JSON.parse(responseText);
+
+    } catch (error) {
+      console.error('Get Driver Route Error:', error);
+      return { success: false, message: 'Bağlantı hatası.' };
+    }
+  },
 };
