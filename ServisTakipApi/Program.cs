@@ -121,7 +121,13 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowMobile", builder =>
-        builder.WithOrigins("http://localhost:*", "http://192.168.*.*")
+        builder.WithOrigins(
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "http://192.168.0.0", // Mobil uygulamalar
+                "https://servis-takip-web-panel.vercel.app", // Production frontend URL'si (gerekirse güncelleyin)
+                "https://servis-takip-web-panel.onrender.com"  // Alternative production URL
+            )
                .AllowAnyMethod()
                .AllowAnyHeader()
                .AllowCredentials()); // SignalR için Credentials izni eklendi

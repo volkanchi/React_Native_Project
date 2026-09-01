@@ -40,8 +40,13 @@ export default function Login() {
         setError(response.data.message);
       }
     } catch (err) {
+      console.error("Login Hatası:", err);
+      alert(`Debug - Tam Hata:\n${JSON.stringify(err, null, 2)}`);
+      
       const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || "Sunucuya bağlanılamadı.");
+      const errorMessage = error.response?.data?.message || "Sunucuya bağlanılamadı.";
+      setError(errorMessage);
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
