@@ -11,9 +11,11 @@ namespace ServisTakipApi.Interfaces
         Task<Models.Route> AddRouteAsync(Models.Route route);
         Task<string?> ValidateResourcesAsync(Guid companyId, Guid vehicleId, Guid driverId, IEnumerable<Guid> passengerIds);
         Task<Models.Route?> GetRouteByIdAndCompanyIdAsync(Guid routeId, Guid companyId);
+        Task<List<Models.Route>> GetRoutesByCompanyIdAsync(Guid companyId);
         Task<string?> GetVehiclePlateByIdAsync(Guid vehicleId, Guid companyId);
         Task<Models.Route> UpdateRouteAsync(Models.Route route);
         Task<bool> SoftDeleteRouteAsync(Guid routeId, Guid companyId);
+        Task<bool> SoftDeleteRouteAsync(Guid routeId, Guid companyId, Guid? actionUserId);
         Task<Models.Route?> GetRouteByCodeAsync(string routeCode);
         Task<RouteStop?> GetRouteStopAsync(Guid routeId, Guid passengerId);
         Task<RouteStop> AddRouteStopAsync(RouteStop stop);

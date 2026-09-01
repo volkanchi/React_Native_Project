@@ -18,8 +18,8 @@ export default function FirmaDashboard() {
       try {
         const [vehiclesRes, driversRes, routesRes] = await Promise.allSettled([
           api.get('/Vehicles'),
-          api.get('/Company/drivers'),
-          api.get('/Route'),
+          api.get('/User/drivers'),
+          api.get('/Route/company'),
         ]);
 
         setStats({

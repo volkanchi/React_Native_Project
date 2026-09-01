@@ -4,31 +4,30 @@ import DashboardLayout from '../../components/DashboardLayout';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 
 type Driver = {
-  driverId: string;
+  id: string;
   userId: string;
   name: string;
   surname: string;
   email: string;
-  username: string;
   phoneNumber?: string;
+  licenseNumber?: string;
+  licenseExpireDate?: string;
 };
 
 type DriverForm = {
   name: string;
   surname: string;
   phoneNumber: string;
-  email: string;
-  username: string;
-  password?: string;
+  licenseNumber: string;
+  licenseExpireDate: string;
 };
 
 const emptyDriver: DriverForm = {
   name: '',
   surname: '',
   phoneNumber: '',
-  email: '',
-  username: '',
-  password: '',
+  licenseNumber: '',
+  licenseExpireDate: '',
 };
 
 export default function Drivers() {
@@ -40,7 +39,7 @@ export default function Drivers() {
 
   const loadDrivers = async () => {
     try {
-      const res = await api.get('/Company/drivers');
+      const res = await api.get('/User/drivers');
       const items = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
       setDrivers(items);
     } catch (error) {
@@ -53,7 +52,7 @@ export default function Drivers() {
     let isMounted = true;
     const fetchDrivers = async () => {
       try {
-        const res = await api.get('/Company/drivers');
+        const res = await api.get('/User/drivers');
         if (isMounted) {
           const items = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
           setDrivers(items);
@@ -71,21 +70,14 @@ export default function Drivers() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      await api.post('/Company/add-driver', newDriver);
-      setIsModalOpen(false);
-      setNewDriver(emptyDriver);
-      await loadDrivers();
-    } catch (error) {
-      console.error('Şoför eklenirken hata oluştu', error);
-      alert('Şoför eklenirken hata oluştu. Lütfen bilgileri kontrol edin.');
-    }
+    alert('Yeni şoför eklemek için lütfen Sistem Yöneticisi ile iletişime geçiniz.');
+    setIsModalOpen(false);
   };
 
   const handleDelete = async (driverId: string) => {
     try {
       if (!window.confirm('Bu şoförü silmek istediğinize emin misiniz?')) return;
-      await api.delete(`/Company/delete-driver/${driverId}`);
+      await api.delete(`/User/drivers/${driverId}`);
       await loadDrivers();
     } catch (error) {
       console.error('Şoför silinirken hata oluştu', error);
@@ -95,12 +87,12 @@ export default function Drivers() {
 
   const handleEditClick = (driver: Driver) => {
     setEditingDriver({
-      driverId: driver.driverId,
+      id: driver.id,
       name: driver.name,
       surname: driver.surname,
       phoneNumber: driver.phoneNumber ?? '',
-      email: driver.email,
-      username: driver.username,
+      licenseNumber: driver.licenseNumber ?? '',
+      licenseExpireDate: driver.licenseExpireDate ?? '',
     });
     setIsEditModalOpen(true);
   };
@@ -109,12 +101,12 @@ export default function Drivers() {
     e.preventDefault();
     if (!editingDriver) return;
     try {
-      await api.put(`/Company/update-driver/${editingDriver.driverId}`, {
+      await api.put(`/User/drivers/${editingDriver.driverId}`, {
         name: editingDriver.name,
         surname: editingDriver.surname,
         phoneNumber: editingDriver.phoneNumber,
-        email: editingDriver.email,
-        username: editingDriver.username,
+        licenseNumber: editingDriver.licenseNumber,
+        licenseExpireDate: editingDriver.licenseExpireDate,
       });
       setIsEditModalOpen(false);
       setEditingDriver(null);
@@ -145,9 +137,9 @@ export default function Drivers() {
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
               <th className="p-4 font-semibold text-gray-600">Ad Soyad</th>
-              <th className="p-4 font-semibold text-gray-600">Kullanıcı Adı</th>
               <th className="p-4 font-semibold text-gray-600">E-posta</th>
               <th className="p-4 font-semibold text-gray-600">Telefon</th>
+              <th className="p-4 font-semibold text-gray-600">Ehliyet No</th>
               <th className="p-4 font-semibold text-gray-600 text-right">İşlem</th>
             </tr>
           </thead>
@@ -160,11 +152,11 @@ export default function Drivers() {
               </tr>
             ) : (
               drivers.map((driver) => (
-                <tr key={driver.driverId} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                <tr key={driver.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                   <td className="p-4 font-bold text-gray-800">{driver.name} {driver.surname}</td>
-                  <td className="p-4 text-gray-600">{driver.username}</td>
                   <td className="p-4 text-gray-600">{driver.email}</td>
                   <td className="p-4 text-gray-600">{driver.phoneNumber ?? '-'}</td>
+                  <td className="p-4 text-gray-600">{driver.licenseNumber ?? '-'}</td>
                   <td className="p-4 text-right">
                     <div className="flex justify-end gap-2">
                       <button
@@ -176,7 +168,7 @@ export default function Drivers() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(driver.driverId)}
+                        onClick={() => handleDelete(driver.id)}
                         className="bg-red-100 text-red-600 hover:bg-red-200 p-2 rounded-lg transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -195,6 +187,9 @@ export default function Drivers() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <h2 className="text-xl font-bold mb-4">Yeni Şoför Ekle</h2>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-sm text-yellow-700">
+              Şoför eklemek için önce sisteme bir kullanıcı hesabı oluşturmanız gerekir.
+            </div>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -207,20 +202,16 @@ export default function Drivers() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Kullanıcı Adı</label>
-                <input required type="text" value={newDriver.username} onChange={e => setNewDriver({ ...newDriver, username: e.target.value })} className="w-full border p-2 rounded-xl" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">E-posta</label>
-                <input required type="email" value={newDriver.email} onChange={e => setNewDriver({ ...newDriver, email: e.target.value })} className="w-full border p-2 rounded-xl" />
-              </div>
-              <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Telefon</label>
                 <input required type="text" value={newDriver.phoneNumber} onChange={e => setNewDriver({ ...newDriver, phoneNumber: e.target.value })} className="w-full border p-2 rounded-xl" />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Şifre</label>
-                <input required type="password" value={newDriver.password} onChange={e => setNewDriver({ ...newDriver, password: e.target.value })} className="w-full border p-2 rounded-xl" />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Ehliyet Numarası</label>
+                <input required type="text" value={newDriver.licenseNumber} onChange={e => setNewDriver({ ...newDriver, licenseNumber: e.target.value })} className="w-full border p-2 rounded-xl" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Ehliyet Son Tarihi</label>
+                <input required type="date" value={newDriver.licenseExpireDate} onChange={e => setNewDriver({ ...newDriver, licenseExpireDate: e.target.value })} className="w-full border p-2 rounded-xl" />
               </div>
               <div className="flex justify-end gap-3 mt-6">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-600 font-semibold hover:bg-gray-100 rounded-xl">İptal</button>
@@ -248,16 +239,16 @@ export default function Drivers() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Kullanıcı Adı</label>
-                <input required type="text" value={editingDriver.username} onChange={e => setEditingDriver({ ...editingDriver, username: e.target.value })} className="w-full border p-2 rounded-xl" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">E-posta</label>
-                <input required type="email" value={editingDriver.email} onChange={e => setEditingDriver({ ...editingDriver, email: e.target.value })} className="w-full border p-2 rounded-xl" />
-              </div>
-              <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Telefon</label>
                 <input required type="text" value={editingDriver.phoneNumber} onChange={e => setEditingDriver({ ...editingDriver, phoneNumber: e.target.value })} className="w-full border p-2 rounded-xl" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Ehliyet Numarası</label>
+                <input required type="text" value={editingDriver.licenseNumber} onChange={e => setEditingDriver({ ...editingDriver, licenseNumber: e.target.value })} className="w-full border p-2 rounded-xl" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Ehliyet Son Tarihi</label>
+                <input required type="date" value={editingDriver.licenseExpireDate} onChange={e => setEditingDriver({ ...editingDriver, licenseExpireDate: e.target.value })} className="w-full border p-2 rounded-xl" />
               </div>
               <div className="flex justify-end gap-3 mt-6">
                 <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-gray-600 font-semibold hover:bg-gray-100 rounded-xl">İptal</button>

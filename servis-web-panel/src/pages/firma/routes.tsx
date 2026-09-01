@@ -9,21 +9,20 @@ type RouteItem = {
   name?: string;
   vehicleId?: string;
   driverId?: string;
-  pathCoordinates?: Array<{ latitude: number; longitude: number }>;
+  vehiclePlate?: string;
+  driverName?: string;
 };
 
 type RouteForm = {
   name: string;
   vehicleId: string;
   driverId: string;
-  pathCoordinates: Array<{ latitude: number; longitude: number }>;
 };
 
 const emptyRoute: RouteForm = {
   name: '',
   vehicleId: '',
   driverId: '',
-  pathCoordinates: [],
 };
 
 export default function RoutesPage() {
@@ -35,7 +34,7 @@ export default function RoutesPage() {
 
   const loadRoutes = async () => {
     try {
-      const res = await api.get('/Route');
+      const res = await api.get('/Route/company');
       const items = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
       setRoutes(items);
     } catch (error) {
@@ -45,43 +44,35 @@ export default function RoutesPage() {
   };
 
   useEffect(() => {
-      let isMounted = true;
-  
-      const fetchVehicles = async () => {
-        try {
-          const res = await api.get('/Vehicles');
-          if (isMounted && res.data.success) {
-            setRoutes(res.data.data);
-          }
-        } catch (error) {
-          console.error('Araçlar yüklenemedi', error);
+    let isMounted = true;
+    const fetchRoutes = async () => {
+      try {
+        const res = await api.get('/Route/company');
+        if (isMounted) {
+          const items = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
+          setRoutes(items);
         }
-      };
-  
-      fetchVehicles();
-  
-      return () => {
-        isMounted = false;
-      };
-    }, []);
-
+      } catch (error) {
+        console.error('Rotalar yüklenemedi', error);
+        if (isMounted) setRoutes([]);
+      }
+    };
+    fetchRoutes();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-
     try {
-      await api.post('/Route/create', {
-        name: newRoute.name,
-        vehicleId: newRoute.vehicleId,
-        driverId: newRoute.driverId,
-        pathCoordinates: newRoute.pathCoordinates,
-      });
+      await api.post('/Route/create', newRoute);
       setIsModalOpen(false);
       setNewRoute(emptyRoute);
       await loadRoutes();
     } catch (error) {
       console.error('Rota eklenirken hata oluştu', error);
-      alert('Rota eklenirken hata oluştu');
+      alert('Rota eklenirken hata oluştu. Lütfen Araç ve Şoför ID alanlarını kontrol edin.');
     }
   };
 
@@ -102,23 +93,19 @@ export default function RoutesPage() {
       name: route.name ?? '',
       vehicleId: route.vehicleId ?? '',
       driverId: route.driverId ?? '',
-      pathCoordinates: route.pathCoordinates ?? [],
     });
     setIsEditModalOpen(true);
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!editingRoute) return;
-
     try {
       await api.put(`/Route/${editingRoute.id}`, {
         name: editingRoute.name,
         vehicleId: editingRoute.vehicleId,
         driverId: editingRoute.driverId,
       });
-
       setIsEditModalOpen(false);
       setEditingRoute(null);
       await loadRoutes();
@@ -133,7 +120,7 @@ export default function RoutesPage() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Rota Yönetimi</h1>
-          <p className="text-gray-500 text-sm mt-1">Filo rota planlamasını ve güncellemelerini yönetin.</p>
+          <p className="text-gray-500 text-sm mt-1">Filo rota planlaması ve güncellemelerini yönetin.</p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
@@ -149,7 +136,7 @@ export default function RoutesPage() {
             <tr>
               <th className="p-4 font-semibold text-gray-600">Rota Kodu</th>
               <th className="p-4 font-semibold text-gray-600">Rota Adı</th>
-              <th className="p-4 font-semibold text-gray-600">Araç</th>
+              <th className="p-4 font-semibold text-gray-600">Araç Plakası</th>
               <th className="p-4 font-semibold text-gray-600">Şoför</th>
               <th className="p-4 font-semibold text-gray-600 text-right">İşlem</th>
             </tr>
@@ -164,10 +151,10 @@ export default function RoutesPage() {
             ) : (
               routes.map((route) => (
                 <tr key={route.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                  <td className="p-4 font-bold text-gray-800">{route.routeCode ?? '—'}</td>
-                  <td className="p-4 text-gray-600">{route.name ?? '—'}</td>
-                  <td className="p-4 text-gray-600">{route.vehicleId ?? '—'}</td>
-                  <td className="p-4 text-gray-600">{route.driverId ?? '—'}</td>
+                  <td className="p-4 font-bold text-gray-800">{route.routeCode ?? '-'}</td>
+                  <td className="p-4 text-gray-600">{route.name ?? '-'}</td>
+                  <td className="p-4 text-gray-600">{route.vehiclePlate ?? route.vehicleId ?? '-'}</td>
+                  <td className="p-4 text-gray-600">{route.driverName ?? route.driverId ?? '-'}</td>
                   <td className="p-4 text-right">
                     <div className="flex justify-end gap-2">
                       <button
@@ -205,11 +192,11 @@ export default function RoutesPage() {
                 <input required type="text" value={newRoute.name} onChange={e => setNewRoute({ ...newRoute, name: e.target.value })} className="w-full border p-2 rounded-xl" />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Araç ID</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Araç ID (GUID)</label>
                 <input required type="text" value={newRoute.vehicleId} onChange={e => setNewRoute({ ...newRoute, vehicleId: e.target.value })} className="w-full border p-2 rounded-xl" />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Şoför ID</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Şoför ID (GUID)</label>
                 <input required type="text" value={newRoute.driverId} onChange={e => setNewRoute({ ...newRoute, driverId: e.target.value })} className="w-full border p-2 rounded-xl" />
               </div>
               <div className="flex justify-end gap-3 mt-6">
@@ -231,11 +218,11 @@ export default function RoutesPage() {
                 <input required type="text" value={editingRoute.name} onChange={e => setEditingRoute({ ...editingRoute, name: e.target.value })} className="w-full border p-2 rounded-xl" />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Araç ID</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Araç ID (GUID)</label>
                 <input required type="text" value={editingRoute.vehicleId} onChange={e => setEditingRoute({ ...editingRoute, vehicleId: e.target.value })} className="w-full border p-2 rounded-xl" />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Şoför ID</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Şoför ID (GUID)</label>
                 <input required type="text" value={editingRoute.driverId} onChange={e => setEditingRoute({ ...editingRoute, driverId: e.target.value })} className="w-full border p-2 rounded-xl" />
               </div>
               <div className="flex justify-end gap-3 mt-6">

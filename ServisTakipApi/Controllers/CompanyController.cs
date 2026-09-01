@@ -144,6 +144,67 @@ namespace ServisTakipApi.Controllers
                 return BadRequest(Response<bool>.Fail(ex.Message));
             }
         }
+
+        // Firma Girişi Yapan Kullanıcının Kendi Şoförlerini Listelemesi
+        [HttpGet("drivers")]
+        public async Task<IActionResult> GetCompanyDrivers()
+        {
+            var companyIdClaim = User.FindFirst("CompanyId")?.Value;
+            if (string.IsNullOrEmpty(companyIdClaim) || !Guid.TryParse(companyIdClaim, out var companyId))
+                return Unauthorized(Response<string>.Fail("Firma kimliği doğrulanamadı."));
+
+            var drivers = await _userService.Drivers
+                .Include(d => d.User)
+                .Where(d => d.User.CompanyId == companyId && !d.User.Deleted)
+                .Select(d => new
+                {
+                    DriverId = d.Id,
+                    UserId = d.UserId,
+                    Name = d.User.Name,
+                    Surname = d.User.Surname,
+                    Email = d.User.Email,
+                    Username = d.User.Username,
+                    PhoneNumber = d.User.PhoneNumber
+                })
+                .ToListAsync();
+
+            return Ok(Response<object>.Successful("Şoförler listelendi.", drivers));
+        }
+
+        // Admin İçin Tüm Firmaları Listeleme
+        [HttpGet]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetAllCompanies()
+        {
+            var companies = await _companyService.Companies
+                .Where(c => !c.Deleted)
+                .Select(c => new
+                {
+                    Id = c.Id,
+                    CompanyName = c.CompanyName,
+                    Username = c.Username,
+                    Email = c.Email,
+                    PhoneNumber = c.PhoneNumber,
+                    Address = c.Address
+                })
+                .ToListAsync();
+
+            return Ok(Response<object>.Successful("Firmalar listelendi.", companies));
+        }
+
+        // Admin İçin Firma Silme
+        [HttpDelete("delete-company/{companyId:guid}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> DeleteCompany(Guid companyId)
+        {
+            var company = await _context.Companies.FirstOrDefaultAsync(c => c.Id == companyId && !c.Deleted);
+            if (company == null)
+                return NotFound(Response<string>.Fail("Firma bulunamadı."));
+
+            company.Deleted = true;
+            await _context.SaveChangesAsync();
+            return Ok(Response<bool>.Successful("Firma silindi.", true));
+        }
     }
 }
 

@@ -11,11 +11,13 @@ namespace ServisTakipApi.Interfaces
         Task<Response<RouteResponseDto>> CreateRouteAsync(Guid companyId, CreateRouteDto createDto);
         Task<Response<RouteResponseDto>> UpdateRouteAsync(Guid routeId, Guid companyId, UpdateRouteDto updateDto);
         Task<Response<bool>> DeleteRouteAsync(Guid routeId, Guid companyId);
+        Task<Response<RouteResponseDto>> GetRouteByIdAsync(Guid routeId, Guid companyId);
+        Task<Response<List<RouteResponseDto>>> GetRoutesByCompanyIdAsync(Guid companyId);
         Task<Response<Guid>> JoinRouteAsync(Guid passengerId, JoinRouteDto joinDto);
         Task<Response<bool>> UpdateStopLocationAsync(Guid passengerId, Guid routeId, UpdateStopLocationDto updateDto);
         Task<Response<bool>> LeaveRouteAsync(Guid passengerId, Guid routeId);
         Task<Response<IEnumerable<object>>> GetPassengerRoutesAsync(Guid passengerId);
         Task<Response<object>> GetDriverActiveRouteAsync(Guid userId);
-        Task<Response<object>> PreviewRouteForJoinAsync(string routeCode); // YENİ EKLENEN
+        Task<Response<object>> PreviewRouteForJoinAsync(string routeCode); 
     }
 }

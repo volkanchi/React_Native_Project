@@ -84,5 +84,47 @@ namespace ServisTakipApi.Repositories
                     d.User.Role == UserRole.Sofor &&
                     !d.User.Deleted);
         }
+        public async Task<List<Driver>> GetDriversByCompanyIdAsync(Guid companyId)
+        {
+            return await _context.Drivers
+                .Include(d => d.User)
+                .Where(d => d.User.CompanyId == companyId && !d.User.Deleted)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        public async Task<Driver?> GetDriverByIdAsync(Guid driverId)
+        {
+            return await _context.Drivers
+                .Include(d => d.User)
+                .FirstOrDefaultAsync(d => d.Id == driverId && !d.User.Deleted);
+        }
+
+        public async Task<Driver> UpdateDriverAsync(Driver driver)
+        {
+            _context.Drivers.Update(driver);
+            await _context.SaveChangesAsync();
+            return driver;
+        }
+
+        public async Task<bool> SoftDeleteDriverAsync(Guid driverId, Guid companyId, Guid? actionUserId)
+        {
+            var driver = await _context.Drivers
+                .Include(d => d.User)
+                .FirstOrDefaultAsync(d => d.Id == driverId && d.User.CompanyId == companyId);
+
+            if (driver == null || driver.User.Deleted)
+                return false;
+
+            driver.User.Deleted = true;
+            driver.User.DeleteDate = DateTime.UtcNow;
+            driver.User.DeleteUser = actionUserId;
+
+            _context.Drivers.Update(driver);
+            _context.Users.Update(driver.User);
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
     }
 }

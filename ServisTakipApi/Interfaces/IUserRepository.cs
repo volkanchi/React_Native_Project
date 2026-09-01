@@ -15,5 +15,9 @@ namespace ServisTakipApi.Interfaces
         Task<User> UpdateUserAsync(User user);
         Task<bool> SoftDeleteUserAsync(Guid userId, Guid? actionUserId); // actionUserId = Silen kişinin ID'si
         Task<Driver?> GetDriverProfileByIdAndCompanyIdAsync(Guid driverId, Guid companyId);
+        Task<List<Driver>> GetDriversByCompanyIdAsync(Guid companyId);
+        Task<Driver?> GetDriverByIdAsync(Guid driverId);
+        Task<Driver> UpdateDriverAsync(Driver driver);
+        Task<bool> SoftDeleteDriverAsync(Guid driverId, Guid companyId, Guid? actionUserId);
     }
 }

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ServisTakipApi.DTOs.UserDTOs;
+using ServisTakipApi.DTOs.DriverDTOs;
 using ServisTakipApi.DTOs.Response;
 using ServisTakipApi.Interfaces;
 using ServisTakipApi.Models;
@@ -7,6 +8,7 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using System.Collections.Generic;
 
 namespace ServisTakipApi.Controllers
 {
@@ -120,6 +122,72 @@ namespace ServisTakipApi.Controllers
 
             var result = await _userService.GetProfileAsync(Guid.Parse(userIdClaim));
             return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+        // ===== DRIVER ENDPOINTS =====
+
+        [HttpGet("drivers/{driverId:guid}")]
+        [Authorize(Roles = "Firma")]
+        public async Task<IActionResult> GetDriver(Guid driverId)
+        {
+            var companyId = GetCompanyId();
+            if (companyId == null)
+                return Unauthorized(Response<string>.Fail("Firma kimliği doğrulanamadı."));
+
+            var response = await _userService.GetDriverByIdAsync(driverId, companyId.Value);
+            return response.Success ? Ok(response) : BadRequest(response);
+        }
+
+        [HttpGet("drivers")]
+        [Authorize(Roles = "Firma")]
+        public async Task<IActionResult> GetCompanyDrivers()
+        {
+            var companyId = GetCompanyId();
+            if (companyId == null)
+                return Unauthorized(Response<string>.Fail("Firma kimliği doğrulanamadı."));
+
+            var response = await _userService.GetCompanyDriversAsync(companyId.Value);
+            return response.Success ? Ok(response) : BadRequest(response);
+        }
+
+        [HttpPut("drivers/{driverId:guid}")]
+        [Authorize(Roles = "Firma")]
+        public async Task<IActionResult> UpdateDriver(Guid driverId, [FromBody] DriverUpdateDto updateDto)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            var companyId = GetCompanyId();
+            if (companyId == null)
+                return Unauthorized(Response<string>.Fail("Firma kimliği doğrulanamadı."));
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized(Response<string>.Fail("Kullanıcı kimliği doğrulanamadı."));
+
+            var response = await _userService.UpdateDriverAsync(driverId, companyId.Value, updateDto, Guid.Parse(userIdClaim));
+            return response.Success ? Ok(response) : BadRequest(response);
+        }
+
+        [HttpDelete("drivers/{driverId:guid}")]
+        [Authorize(Roles = "Firma")]
+        public async Task<IActionResult> DeleteDriver(Guid driverId)
+        {
+            var companyId = GetCompanyId();
+            if (companyId == null)
+                return Unauthorized(Response<string>.Fail("Firma kimliği doğrulanamadı."));
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized(Response<string>.Fail("Kullanıcı kimliği doğrulanamadı."));
+
+            var response = await _userService.DeleteDriverAsync(driverId, companyId.Value, Guid.Parse(userIdClaim));
+            return response.Success ? Ok(response) : BadRequest(response);
+        }
+
+        private Guid? GetCompanyId()
+        {
+            var companyIdClaim = User.FindFirst("CompanyId")?.Value;
+            return Guid.TryParse(companyIdClaim, out var companyId) ? companyId : null;
         }
     }
 }

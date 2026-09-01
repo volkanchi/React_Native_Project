@@ -331,5 +331,39 @@ namespace ServisTakipApi.Services
 
             return Response<object>.Successful("Rota önizlemesi getirildi.", result);
         }
+
+        public async Task<Response<RouteResponseDto>> GetRouteByIdAsync(Guid routeId, Guid companyId)
+        {
+            try
+            {
+                var route = await _routeRepository.GetRouteByIdAndCompanyIdAsync(routeId, companyId);
+                if (route == null)
+                    return Response<RouteResponseDto>.Fail("Rota bulunamadı veya bu şirkete ait değil.");
+
+                return Response<RouteResponseDto>.Successful("Rota bilgileri getirildi.", ToResponse(route));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Route retrieval failed for route {RouteId}", routeId);
+                return Response<RouteResponseDto>.Fail("Rota bilgileri getirilirken hata oluştu.");
+            }
+        }
+
+        public async Task<Response<List<RouteResponseDto>>> GetRoutesByCompanyIdAsync(Guid companyId)
+        {
+            try
+            {
+                var routes = await _routeRepository.GetRoutesByCompanyIdAsync(companyId);
+                var routeDtos = routes.Select(r => ToResponse(r)).ToList();
+
+                return Response<List<RouteResponseDto>>.Successful(
+                    $"{routeDtos.Count} rota bulundu.", routeDtos);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Routes retrieval failed for company {CompanyId}", companyId);
+                return Response<List<RouteResponseDto>>.Fail("Rotalar listelenirken hata oluştu.");
+            }
+        }
     }
 }
