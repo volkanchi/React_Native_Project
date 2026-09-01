@@ -57,6 +57,16 @@ namespace ServisTakipApi.Controllers
             var result = await _vehicleService.AssignDriverAsync(dto, companyId.Value);
             return result.Success ? Ok(result) : BadRequest(result);
         }
+        [HttpDelete("delete-vehicle/{vehicleId}")]
+        public async Task<IActionResult> DeleteVehicle(Guid vehicleId)
+        {
+            var companyId = GetCompanyId();
+            if (companyId == null)
+                return Unauthorized(Response<bool>.Fail("Firma kimlik bilgisi doğrulanamadı."));
+
+            var result = await _vehicleService.DeleteVehicleAsync(vehicleId, companyId.Value);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
 
         private Guid? GetCompanyId()
         {

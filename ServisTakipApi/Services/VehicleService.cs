@@ -71,5 +71,18 @@ namespace ServisTakipApi.Services
             await _repository.SaveChangesAsync();
             return Response<bool>.Successful("Sürücü araca atandı.", true);
         }
+
+        public async Task<Response<bool>> DeleteVehicleAsync(Guid vehicleId, Guid companyId)
+        {
+            if (vehicleId == Guid.Empty)
+                return Response<bool>.Fail("Araç kimliği geçersiz.");
+
+            var vehicle = await _repository.DeleteAsync(vehicleId, companyId);
+            if (vehicle == null)
+                return Response<bool>.Fail("Silinecek araç bulunamadı.");
+
+            await _repository.SaveChangesAsync();
+            return Response<bool>.Successful("Araç başarıyla silindi.", true);
+        }
     }
 }

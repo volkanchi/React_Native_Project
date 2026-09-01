@@ -34,6 +34,11 @@ namespace ServisTakipApi.Repositories
                 .AsNoTracking()
                 .ToListAsync();
         }
+        public async Task<Vehicle?> GetByIdAsync(Guid vehicleId, Guid companyId)
+        {
+            return await _context.Vehicles.FirstOrDefaultAsync(v =>
+                v.Id == vehicleId && v.CompanyId == companyId && !v.Deleted);
+        }
 
         public async Task<bool> AssignDriverAsync(Guid driverId, Guid vehicleId, Guid companyId)
         {
@@ -60,6 +65,17 @@ namespace ServisTakipApi.Repositories
             driver.Capacity = vehicle.Capacity;       // Araç kapasitesi şoföre kopyalandı
 
             return true;
+        }
+        public async Task<Vehicle?> DeleteAsync(Guid vehicleId, Guid companyId)
+        {
+            var vehicle = await _context.Vehicles.FirstOrDefaultAsync(v =>
+                v.Id == vehicleId && v.CompanyId == companyId && !v.Deleted);
+
+            if (vehicle == null)
+                return null;
+
+            vehicle.Deleted = true;
+            return vehicle;
         }
 
         public async Task SaveChangesAsync()

@@ -8,5 +8,6 @@ namespace ServisTakipApi.Services
         Task<Response<VehicleResponseDto>> CreateVehicleAsync(CreateVehicleDto createVehicleDto, Guid companyId);
         Task<Response<IEnumerable<VehicleResponseDto>>> GetVehiclesByCompanyAsync(Guid companyId);
         Task<Response<bool>> AssignDriverAsync(AssignVehicleToDriverDto dto, Guid companyId);
+        Task<Response<bool>> DeleteVehicleAsync(Guid vehicleId, Guid companyId);
     }
 }
