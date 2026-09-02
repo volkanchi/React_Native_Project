@@ -8,6 +8,7 @@ import {
   Alert,
   LayoutAnimation,
   AppState,
+  ActivityIndicator,
 } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
@@ -43,6 +44,8 @@ type RouteState = {
   stops: DriverStop[];
 };
 
+const EMPTY_STOPS: DriverStop[] = [];
+
 const toRad = (v: number) => (v * Math.PI) / 180;
 
 const haversineDistance = (
@@ -60,10 +63,7 @@ const haversineDistance = (
   return 2 * R * Math.asin(Math.sqrt(h));
 };
 
-const orderStopsByProximity = <
-  T extends { latitude: number; longitude: number },
-  origin extends { latitude: number; longitude: number },
->(
+const orderStopsByProximity = <T extends { latitude: number; longitude: number }>(
   origin: { latitude: number; longitude: number },
   stops: T[],
 ): T[] => {
@@ -98,6 +98,12 @@ export default function DriverMainScreen({
   selectedRouteId,
   onRequireRouteSelection,
 }: DriverMainScreenProps) {
+  // Entegre Rota Seçim Durumları
+  const [availableRoutes, setAvailableRoutes] = useState<any[]>([]);
+  const [loadingRoutes, setLoadingRoutes] = useState(true);
+  const [showRouteSelect, setShowRouteSelect] = useState(false);
+
+  // Sefer ve Harita Durumları
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [tripActive, setTripActive] = useState(false);
   const [currentStopIndex, setCurrentStopIndex] = useState(0);
@@ -107,41 +113,66 @@ export default function DriverMainScreen({
 
   const driverCoordRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const routeRequestIdRef = useRef(0);
-  const [driverCoord, setDriverCoord] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
+  const [driverCoord, setDriverCoord] = useState<{ latitude: number; longitude: number } | null>(null);
   const [pathTraveled, setPathTraveled] = useState<{ latitude: number; longitude: number }[]>([]);
   const [usingSimulatedLocation, setUsingSimulatedLocation] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [routeCoordinates, setRouteCoordinates] = useState<Coordinate[]>([]);
   const [activePassengers, setActivePassengers] = useState<string[]>([]);
 
-  const toggleSheet = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setSheetExpanded((expanded) => !expanded);
-  };
-
   const watchSubRef = useRef<Location.LocationSubscription | null>(null);
   const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const routeIdRef = useRef<string>("");
 
+  const toggleSheet = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setSheetExpanded((expanded) => !expanded);
+  };
+
+  // 1. Ekran açılışında rotaları getir ve seçim ihtiyacını belirle
   useEffect(() => {
-    loadRouteData(selectedRouteId);
+    initDriverRoutes(selectedRouteId);
   }, [selectedRouteId]);
 
-  const loadRouteData = async (routeIdParam?: string) => {
+  const initDriverRoutes = async (targetRouteId?: string) => {
+    setLoadingRoutes(true);
     const token = await storageService.getToken();
-    if (!token) return;
-
-    if (!routeIdParam) {
-      const listRes = await routeService.getDriverRoutes(token);
-      if (listRes.success && Array.isArray(listRes.data) && listRes.data.length > 1) {
-        onRequireRouteSelection?.();
-        return;
-      }
+    if (!token) {
+      setLoadingRoutes(false);
+      return;
     }
+
+    if (targetRouteId) {
+      await loadRouteDetail(targetRouteId, token);
+      setLoadingRoutes(false);
+      return;
+    }
+
+    const res = await routeService.getDriverRoutes(token);
+    if (res.success && Array.isArray(res.data)) {
+      setAvailableRoutes(res.data);
+      if (res.data.length === 1) {
+        // Tek servis varsa doğrudan haritayı yükle
+        await loadRouteDetail(res.data[0].routeId, token);
+        setShowRouteSelect(false);
+      } else if (res.data.length > 1) {
+        // Birden çok servis varsa seçim ekranını göster
+        setShowRouteSelect(true);
+        onRequireRouteSelection?.();
+      } else {
+        setRouteData(null);
+      }
+    } else {
+      // Liste servisi yanıt vermezse varsayılan rotayı dene
+      await loadRouteDetail(undefined, token);
+    }
+    setLoadingRoutes(false);
+  };
+
+  const loadRouteDetail = async (routeIdParam?: string, tokenParam?: string) => {
+    const token = tokenParam || (await storageService.getToken());
+    if (!token) return;
 
     const res = await routeService.getDriverRoute(token, routeIdParam);
     if (res.success && res.data) {
@@ -154,7 +185,7 @@ export default function DriverMainScreen({
         plate: res.data.plate,
         vehicleModel: res.data.vehicleModel,
         capacity: res.data.capacity,
-        stops: res.data.stops.map((s: any) => ({
+        stops: (res.data.stops || []).map((s: any) => ({
           id: s.id,
           passengerId: s.passengerId,
           label: s.passengerName || s.label,
@@ -163,11 +194,19 @@ export default function DriverMainScreen({
           longitude: s.longitude,
         })),
       });
+      setShowRouteSelect(false);
     } else {
       setRouteData(null);
     }
   };
 
+  const handleSelectRouteFromList = async (routeId: string) => {
+    setLoadingRoutes(true);
+    await loadRouteDetail(routeId);
+    setLoadingRoutes(false);
+  };
+
+  // Zamanlayıcı
   useEffect(() => {
     if (tripActive) {
       timerIntervalRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
@@ -346,31 +385,43 @@ export default function DriverMainScreen({
     setCurrentStopIndex((i) => i + 1);
   };
 
-  const routeStops = routeData?.stops ?? [];
+  // Sonsuz döngüyü önleyen güvenli memoize durak listesi
   const activeStops = useMemo(() => {
-    const filtered = routeStops.filter((s) =>
+    const stops = routeData?.stops;
+    if (!stops || stops.length === 0 || activePassengers.length === 0) {
+      return EMPTY_STOPS;
+    }
+
+    const filtered = stops.filter((s) =>
       activePassengers.includes(s.passengerId.toLowerCase()),
     );
+
+    if (filtered.length === 0) return EMPTY_STOPS;
+
     const origin =
-      driverCoordRef.current ??
-      (routeStops[0]
-        ? { latitude: routeStops[0].latitude, longitude: routeStops[0].longitude }
-        : { latitude: 41.0082, longitude: 28.9784 });
+      driverCoordRef.current ?? {
+        latitude: stops[0].latitude,
+        longitude: stops[0].longitude,
+      };
+
     return orderStopsByProximity(origin, filtered);
-  }, [routeStops, activePassengers]);
+  }, [routeData?.stops, activePassengers]);
 
   const safeStopIndex = Math.min(currentStopIndex, Math.max(activeStops.length - 1, 0));
 
+  // Döngü kilidini kıran korumalı polyline useEffect
   useEffect(() => {
     const remainingStops = activeStops.slice(safeStopIndex);
     if (remainingStops.length === 0) {
-      setRouteCoordinates([]);
+      setRouteCoordinates((prev) => (prev.length > 0 ? [] : prev));
       return;
     }
+
     const origin = driverCoordRef.current ?? {
       latitude: remainingStops[0].latitude,
       longitude: remainingStops[0].longitude,
     };
+
     const dynamicStops: Coordinate[] = [
       origin,
       ...remainingStops.map((s) => ({
@@ -378,6 +429,7 @@ export default function DriverMainScreen({
         longitude: s.longitude,
       })),
     ];
+
     const requestId = ++routeRequestIdRef.current;
     mapService.getRoutePolyline(dynamicStops).then((coords) => {
       if (requestId === routeRequestIdRef.current) {
@@ -392,10 +444,67 @@ export default function DriverMainScreen({
   );
   const occupancyPct = routeData?.capacity ? occupancy / routeData.capacity : 0;
   const nextStop = activeStops[safeStopIndex];
-  const mapCenter = activeStops[0]
-    ? { latitude: activeStops[0].latitude, longitude: activeStops[0].longitude }
+  const mapCenter = routeData?.stops?.[0]
+    ? { latitude: routeData.stops[0].latitude, longitude: routeData.stops[0].longitude }
     : { latitude: 41.0082, longitude: 28.9784 };
 
+  // =========================================================================
+  // GÖRÜNÜM 1: ENTEGRE SERVİS SEÇİM EKRANI (Birden fazla rota veya seçim anı)
+  // =========================================================================
+  if (showRouteSelect) {
+    return (
+      <View style={selectStyles.container}>
+        <View style={selectStyles.topBar}>
+          <View style={selectStyles.topBarLeft}>
+            <Ionicons name="bus" size={22} color="#1E4ED8" />
+            <Text style={selectStyles.appName}>Servisini Seç</Text>
+          </View>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            {routeData && (
+              <TouchableOpacity
+                style={selectStyles.iconButton}
+                onPress={() => setShowRouteSelect(false)}
+              >
+                <Feather name="x" size={20} color="#111827" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={selectStyles.iconButton} onPress={onLogout}>
+              <Feather name="log-out" size={20} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {loadingRoutes ? (
+          <ActivityIndicator size="large" color="#2563EB" style={{ marginTop: 100 }} />
+        ) : availableRoutes.length === 0 ? (
+          <View style={selectStyles.emptyBox}>
+            <Feather name="info" size={24} color="#9CA3AF" />
+            <Text style={selectStyles.emptyText}>Size atanmış bir servis bulunamadı.</Text>
+          </View>
+        ) : (
+          <ScrollView style={selectStyles.list}>
+            {availableRoutes.map((route) => (
+              <TouchableOpacity
+                key={route.routeId}
+                style={selectStyles.routeCard}
+                onPress={() => handleSelectRouteFromList(route.routeId)}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={selectStyles.routeName}>{route.name}</Text>
+                  <Text style={selectStyles.routePlate}>Plaka: {route.plate}</Text>
+                </View>
+                <Feather name="chevron-right" size={20} color="#2563EB" />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+      </View>
+    );
+  }
+
+  // =========================================================================
+  // GÖRÜNÜM 2: ŞOFÖR CANLI HARİTA VE SEFER KONTROL EKRANI
+  // =========================================================================
   return (
     <View style={styles.container}>
       <MapView
@@ -429,7 +538,6 @@ export default function DriverMainScreen({
           />
         )}
 
-        {/* Durak Noktaları Yalnızca Native Marker Olarak Çizilir */}
         {isMapReady &&
           activeStops.map((stop, i) => (
             <Marker
@@ -454,16 +562,27 @@ export default function DriverMainScreen({
 
       {/* Üst Bar */}
       <View style={styles.topBar}>
-        <View style={styles.brandChip}>
+        <TouchableOpacity
+          style={styles.brandChip}
+          onPress={() => {
+            if (availableRoutes.length > 1 && !tripActive) {
+              setShowRouteSelect(true);
+            }
+          }}
+          disabled={tripActive}
+        >
           <Ionicons name="bus-outline" size={18} color="#1D4ED8" />
           <Text style={styles.brandText}>{routeData?.name || "Rota bekleniyor"}</Text>
-        </View>
+          {availableRoutes.length > 1 && !tripActive && (
+            <Feather name="chevron-down" size={16} color="#1D4ED8" style={{ marginLeft: 4 }} />
+          )}
+        </TouchableOpacity>
         <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
           <Text style={styles.logoutText}>Çıkış</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Alt Bilgi Paneli (Sheet) */}
+      {/* Alt Bilgi Paneli */}
       <View style={[styles.sheet, { height: sheetExpanded ? "76%" : "46%" }]}>
         <TouchableOpacity style={styles.dragHandleContainer} onPress={toggleSheet}>
           <View style={styles.dragHandle} />
@@ -531,11 +650,10 @@ export default function DriverMainScreen({
             </TouchableOpacity>
           </View>
 
-          {/* Durak Listesi Artık Sadece Bu ScrollView İçinde Yer Alır */}
-          {routeStops.length > 0 ? (
+          {routeData && routeData.stops.length > 0 ? (
             <View style={styles.stopList}>
               <Text style={styles.sectionTitle}>DURAKLAR (SADECE AKTİF YOLCULAR)</Text>
-              {routeStops.map((stop, i) => {
+              {routeData.stops.map((stop, i) => {
                 const isActive = activePassengers.includes(stop.passengerId.toLowerCase());
                 return (
                   <TouchableOpacity
@@ -552,7 +670,7 @@ export default function DriverMainScreen({
                           i === currentStopIndex && styles.stopMarkerCurrent,
                         ]}
                       />
-                      {i < routeStops.length - 1 && <View style={styles.stopConnector} />}
+                      {i < routeData.stops.length - 1 && <View style={styles.stopConnector} />}
                     </View>
                     <View style={styles.stopTextWrap}>
                       <Text style={styles.stopName}>
@@ -764,4 +882,48 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 10,
   },
+});
+
+const selectStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#F1F5F9", paddingTop: 60 },
+  topBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  topBarLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  appName: { fontWeight: "800", color: "#111827", fontSize: 18 },
+  iconButton: {
+    backgroundColor: "#fff",
+    padding: 12,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  list: { paddingHorizontal: 20 },
+  routeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  routeName: { fontSize: 16, fontWeight: "700", color: "#111827", marginBottom: 4 },
+  routePlate: { fontSize: 13, color: "#2563EB", fontWeight: "600" },
+  emptyBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    marginHorizontal: 20,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+  },
+  emptyText: { textAlign: "center", color: "#6B7280", marginTop: 10, fontSize: 14 },
 });
