@@ -7,6 +7,8 @@ using ServisTakipApi.Mappers;
 using ServisTakipApi.Models;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace ServisTakipApi.Services
@@ -212,6 +214,21 @@ namespace ServisTakipApi.Services
             {
                 _logger.LogError(ex, "Şoför silme işlemi sırasında hata oluştu - DriverId: {DriverId}, CompanyId: {CompanyId}", driverId, companyId);
                 return Response<bool>.Fail("Silme işlemi sırasında hata oluştu. Lütfen daha sonra tekrar deneyin.");
+            }
+        }
+
+        public async Task<Response<IEnumerable<DriverResponseDto>>> GetDriversByCompanyAsync(Guid companyId)
+        {
+            try
+            {
+                var drivers = await _userRepository.GetDriversByCompanyIdAsync(companyId);
+                var result = drivers.Select(d => ToDriverResponse(d, d.User));
+                return Response<IEnumerable<DriverResponseDto>>.Successful(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Şoförler listelenirken hata oluştu - CompanyId: {CompanyId}", companyId);
+                return Response<IEnumerable<DriverResponseDto>>.Fail("Şoförler getirilirken bir hata oluştu.");
             }
         }
 

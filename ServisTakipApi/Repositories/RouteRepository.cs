@@ -82,29 +82,6 @@ namespace ServisTakipApi.Repositories
             await _context.SaveChangesAsync();
             return true;
         }
-
-        public async Task<bool> SoftDeleteRouteAsync(Guid routeId, Guid companyId, Guid? actionUserId)
-        {
-            var route = await GetRouteByIdAndCompanyIdAsync(routeId, companyId);
-            if (route == null) return false;
-
-            route.Deleted = true;
-
-            _context.Routes.Update(route);
-            await _context.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<List<Models.Route>> GetRoutesByCompanyIdAsync(Guid companyId)
-        {
-            return await _context.Routes
-                .Include(r => r.Stops)
-                .Include(r => r.Vehicle)
-                .Include(r => r.Driver).ThenInclude(d => d!.User)
-                .Where(r => r.CompanyId == companyId && !r.Deleted)
-                .AsNoTracking()
-                .ToListAsync();
-        }
         public async Task<Models.Route?> GetRouteByCodeAsync(string routeCode)
         {
             // Koda göre rotayı buluruz (Silinmemiş olmalı)
@@ -196,6 +173,15 @@ namespace ServisTakipApi.Repositories
                 .Where(x => x.Driver.UserId == userId && !x.Route.Deleted)
                 .Select(x => x.Route)
                 .FirstOrDefaultAsync();
+        }
+
+        public async Task<IEnumerable<Models.Route>> GetRoutesByCompanyIdAsync(Guid companyId)
+        {
+            return await _context.Routes
+                .Include(r => r.Stops)
+                .Where(r => r.CompanyId == companyId && !r.Deleted)
+                .AsNoTracking()
+                .ToListAsync();
         }
     }
 }

@@ -87,7 +87,7 @@ export default function Drivers() {
 
   const handleEditClick = (driver: Driver) => {
     setEditingDriver({
-      id: driver.id,
+      driverId: driver.id,
       name: driver.name,
       surname: driver.surname,
       phoneNumber: driver.phoneNumber ?? '',

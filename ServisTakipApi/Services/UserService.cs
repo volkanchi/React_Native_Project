@@ -1,14 +1,11 @@
 using ServisTakipApi.DTOs.Response;
 using ServisTakipApi.DTOs.UserDTOs;
-using ServisTakipApi.DTOs.DriverDTOs;
 using ServisTakipApi.Interfaces;
 using ServisTakipApi.Models;
 using ServisTakipApi.Helpers;
 using ServisTakipApi.Mappers;
 using System;
 using System.Threading.Tasks;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace ServisTakipApi.Services
 {
@@ -137,109 +134,6 @@ namespace ServisTakipApi.Services
                 return Response<User>.Fail("Kullanıcı bulunamadı.");
 
             return Response<User>.Successful("Profil bilgileri getirildi.", user);
-        }
-
-        public async Task<Response<DriverResponseDto>> GetDriverByIdAsync(Guid driverId, Guid companyId)
-        {
-            try
-            {
-                var driver = await _userRepository.GetDriverProfileByIdAndCompanyIdAsync(driverId, companyId);
-                if (driver == null)
-                    return Response<DriverResponseDto>.Fail("Şoför bulunamadı veya bu şirkete ait değil.");
-
-                var driverDto = new DriverResponseDto
-                {
-                    DriverId = driver.Id,
-                    UserId = driver.UserId,
-                    Name = driver.User.Name,
-                    Surname = driver.User.Surname,
-                    Email = driver.User.Email,
-                    PhoneNumber = driver.User.PhoneNumber,
-                };
-
-                return Response<DriverResponseDto>.Successful("Şoför bilgileri getirildi.", driverDto);
-            }
-            catch (Exception ex)
-            {
-                return Response<DriverResponseDto>.Fail("Şoför bilgileri getirilirken hata oluştu: " + ex.Message);
-            }
-        }
-
-        public async Task<Response<List<DriverResponseDto>>> GetCompanyDriversAsync(Guid companyId)
-        {
-            try
-            {
-                var drivers = await _userRepository.GetDriversByCompanyIdAsync(companyId);
-                
-                var driverDtos = drivers.Select(d => new DriverResponseDto
-                {
-                    DriverId = d.Id,
-                    UserId = d.UserId,
-                    Name = d.User.Name,
-                    Surname = d.User.Surname,
-                    Email = d.User.Email,
-                    PhoneNumber = d.User.PhoneNumber,
-                
-                }).ToList();
-
-                return Response<List<DriverResponseDto>>.Successful(
-                    $"{driverDtos.Count} şoför bulundu.", driverDtos);
-            }
-            catch (Exception ex)
-            {
-                return Response<List<DriverResponseDto>>.Fail("Şoförler listelenirken hata oluştu: " + ex.Message);
-            }
-        }
-
-        public async Task<Response<DriverResponseDto>> UpdateDriverAsync(Guid driverId, Guid companyId, DriverUpdateDto updateDto, Guid actionUserId)
-        {
-            try
-            {
-                var driver = await _userRepository.GetDriverProfileByIdAndCompanyIdAsync(driverId, companyId);
-                if (driver == null)
-                    return Response<DriverResponseDto>.Fail("Şoför bulunamadı veya bu şirkete ait değil.");
-
-                // User bilgilerini güncelle
-                driver.User.Name = updateDto.Name;
-                driver.User.Surname = updateDto.Surname;
-                driver.User.PhoneNumber = updateDto.PhoneNumber;
-                driver.User.UpdateDate = DateTime.UtcNow;
-                driver.User.UpdateUser = actionUserId;
-
-                var updatedDriver = await _userRepository.UpdateDriverAsync(driver);
-
-                var driverDto = new DriverResponseDto
-                {
-                    DriverId = updatedDriver.Id,
-                    UserId = updatedDriver.UserId,
-                    Name = updatedDriver.User.Name,
-                    Surname = updatedDriver.User.Surname,
-                    Email = updatedDriver.User.Email,
-                    PhoneNumber = updatedDriver.User.PhoneNumber,
-                };
-
-                return Response<DriverResponseDto>.Successful("Şoför bilgileri güncellendi.", driverDto);
-            }
-            catch (Exception ex)
-            {
-                return Response<DriverResponseDto>.Fail("Şoför güncellenmesi sırasında hata oluştu: " + ex.Message);
-            }
-        }
-
-        public async Task<Response<bool>> DeleteDriverAsync(Guid driverId, Guid companyId, Guid actionUserId)
-        {
-            try
-            {
-                var isDeleted = await _userRepository.SoftDeleteDriverAsync(driverId, companyId, actionUserId);
-                if (!isDeleted)
-                    return Response<bool>.Fail("Şoför bulunamadı, zaten silinmiş veya bu şirkete ait değil.");
-
-                return Response<bool>.Successful("Şoför başarıyla silindi.", true);
-            }
-            catch (Exception ex)
-            {
-                return Response<bool>.Fail("Şoför silme işlemi sırasında hata oluştu: " + ex.Message);
-            }
         }
     }
 }

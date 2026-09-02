@@ -7,8 +7,6 @@ using ServisTakipApi.Interfaces;
 using ServisTakipApi.Models;
 using System;
 using System.Threading.Tasks;
-using System.Linq;
-using System.Security.Claims;
 
 namespace ServisTakipApi.Controllers
 {
@@ -118,6 +116,18 @@ namespace ServisTakipApi.Controllers
             {
                 return BadRequest(Response<DriverResponseDto>.Fail(ex.Message));
             }
+        }
+
+        [HttpGet("drivers")]
+        public async Task<IActionResult> GetDrivers()
+        {
+            var companyIdClaim = User.Claims.FirstOrDefault(c => c.Type == "CompanyId")?.Value;
+            if (string.IsNullOrEmpty(companyIdClaim))
+                return Unauthorized(Response<bool>.Fail("Firma kimlik bilgisi doğrulanamadı. Lütfen tekrar giriş yapın."));
+
+            Guid companyId = Guid.Parse(companyIdClaim);
+            var response = await _companyService.GetDriversByCompanyAsync(companyId);
+            return Ok(response);
         }
 
         [HttpDelete("delete-driver/{driverId}")]

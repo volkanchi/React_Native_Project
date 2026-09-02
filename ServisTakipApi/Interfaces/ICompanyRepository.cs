@@ -1,10 +1,12 @@
 using ServisTakipApi.Models;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace ServisTakipApi.Interfaces
 {
     public interface ICompanyRepository
     {
+        Task<List<Company>> GetAllCompaniesAsync();
         Task<bool> IsEmailExistsAsync(string email);
         Task<bool> IsUsernameExistsAsync(string username);
         Task<bool> IsEmailExistsExceptAsync(string email, Guid companyId);
@@ -13,5 +15,6 @@ namespace ServisTakipApi.Interfaces
         Task<Company> UpdateCompanyAsync(Company company);
         Task<Company?> GetCompanyByIdAsync(Guid id);
         Task<Company?> GetCompanyByUsernameAsync(string username);
+        Task<bool> SoftDeleteCompanyAsync(Guid companyId);
     }
 }

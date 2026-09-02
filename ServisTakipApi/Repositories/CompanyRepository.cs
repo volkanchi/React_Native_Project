@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using ServisTakipApi.Context;
 using ServisTakipApi.Interfaces;
 using ServisTakipApi.Models;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace ServisTakipApi.Repositories
@@ -57,6 +59,26 @@ namespace ServisTakipApi.Repositories
         public async Task<Company?> GetCompanyByUsernameAsync(string username)
         {
             return await _context.Companies.FirstOrDefaultAsync(c => c.Username == username && !c.Deleted);
+        }
+
+        public async Task<List<Company>> GetAllCompaniesAsync()
+        {
+            return await _context.Companies
+                .Where(c => !c.Deleted)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        public async Task<bool> SoftDeleteCompanyAsync(Guid companyId)
+        {
+            var company = await _context.Companies.FindAsync(companyId);
+            if (company == null || company.Deleted)
+                return false;
+
+            company.Deleted = true;
+            _context.Companies.Update(company);
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }

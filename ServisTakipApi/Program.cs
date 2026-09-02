@@ -114,6 +114,7 @@ builder.Services.AddScoped<IRouteRepository, RouteRepository>();
 builder.Services.AddScoped<IRouteService, RouteService>();
 builder.Services.AddScoped<IVehicleRepository, VehicleRepository>();
 builder.Services.AddScoped<IVehicleService, VehicleService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddControllers().AddJsonOptions(x =>
     x.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles);
 builder.Services.AddEndpointsApiExplorer();
@@ -121,13 +122,19 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowMobile", builder =>
-        builder.WithOrigins(
-                "http://localhost:3000",
-                "http://localhost:5173",
-                "http://192.168.0.0", // Mobil uygulamalar
-                "https://servis-takip-web-panel.vercel.app", // Production frontend URL'si (gerekirse güncelleyin)
-                "https://servis-takip-web-panel.onrender.com"  // Alternative production URL
-            )
+        builder.SetIsOriginAllowed(origin =>
+                {
+                    // "WithOrigins" does not support wildcards for host/port, so any
+                    // localhost/LAN port (used by the Vite dev server, emulators, etc.)
+                    // is matched explicitly here instead.
+                    if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                    {
+                        return uri.Host is "localhost" or "127.0.0.1"
+                            || uri.Host.StartsWith("192.168.")
+                            || uri.Host.StartsWith("10.");
+                    }
+                    return false;
+                })
                .AllowAnyMethod()
                .AllowAnyHeader()
                .AllowCredentials()); // SignalR için Credentials izni eklendi
