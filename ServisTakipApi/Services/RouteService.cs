@@ -293,6 +293,16 @@ namespace ServisTakipApi.Services
 
             return Response<IEnumerable<object>>.Successful("Rotalar başarıyla getirildi.", result);
         }
+
+        public async Task<Response<RouteResponseDto>> GetPassengerRouteAsync(Guid passengerId, Guid routeId)
+        {
+            var route = await _routeRepository.GetRouteWithStopsByIdAsync(routeId);
+            if (route == null || !route.Stops.Any(s => s.PassengerId == passengerId))
+                return Response<RouteResponseDto>.Fail("Rota bulunamadı veya bu rotaya dahil değilsiniz.");
+
+            return Response<RouteResponseDto>.Successful("Rota detayları başarıyla getirildi.", ToResponse(route));
+        }
+
         public async Task<Response<object>> GetDriverActiveRouteAsync(Guid userId)
         {
             var route = await _routeRepository.GetActiveRouteByDriverUserIdAsync(userId);

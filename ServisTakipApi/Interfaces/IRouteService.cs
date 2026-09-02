@@ -15,6 +15,7 @@ namespace ServisTakipApi.Interfaces
         Task<Response<bool>> UpdateStopLocationAsync(Guid passengerId, Guid routeId, UpdateStopLocationDto updateDto);
         Task<Response<bool>> LeaveRouteAsync(Guid passengerId, Guid routeId);
         Task<Response<IEnumerable<object>>> GetPassengerRoutesAsync(Guid passengerId);
+        Task<Response<RouteResponseDto>> GetPassengerRouteAsync(Guid passengerId, Guid routeId);
         Task<Response<object>> GetDriverActiveRouteAsync(Guid userId);
         Task<Response<object>> PreviewRouteForJoinAsync(string routeCode);
         Task<Response<IEnumerable<RouteResponseDto>>> GetRoutesByCompanyAsync(Guid companyId);

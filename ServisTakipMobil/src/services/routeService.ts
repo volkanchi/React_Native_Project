@@ -90,6 +90,30 @@ export const routeService = {
       return { success: false, message: "Bağlantı hatası." };
     }
   },
+  getPassengerRoute: async (routeId: string, token: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/PassengerRoute/${routeId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const responseText = await response.text();
+      if (!responseText) {
+        return { success: false, message: "Sunucudan boş yanıt döndü." };
+      }
+
+      const data = JSON.parse(responseText);
+      return response.ok
+        ? data
+        : { success: false, message: data.message || `API Hatası (Status: ${response.status})` };
+    } catch (error) {
+      console.error("Get Passenger Route Error:", error);
+      return { success: false, message: "Bağlantı hatası." };
+    }
+  },
   getDriverRoute: async (token: string) => {
     try {
       const response = await fetch(`${API_BASE_URL}/Route/driver-route`, {

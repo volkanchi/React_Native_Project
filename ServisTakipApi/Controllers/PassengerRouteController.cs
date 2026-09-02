@@ -66,6 +66,16 @@ namespace ServisTakipApi.Controllers
             var result = await _routeService.GetPassengerRoutesAsync(Guid.Parse(userIdClaim));
             return result.Success ? Ok(result) : BadRequest(result);
         }
+
+        [HttpGet("{routeId:guid}")]
+        public async Task<IActionResult> GetRoute(Guid routeId)
+        {
+            if (!TryGetPassengerId(out var passengerId)) return Unauthorized();
+
+            var result = await _routeService.GetPassengerRouteAsync(passengerId, routeId);
+            return result.Success ? Ok(result) : NotFound(result);
+        }
+
         [HttpGet("preview/{routeCode}")]
         [Authorize(Roles = "Yolcu")]
         public async Task<IActionResult> PreviewRoute(string routeCode)
