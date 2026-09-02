@@ -19,6 +19,8 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const PANEL_ROLES: DecodedToken["role"][] = ["Firma", "Admin"];
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<DecodedToken | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,9 +30,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) {
       try {
         const decoded = decodeToken(token);
-        const isWebRole = decoded.role === "Firma" || decoded.role === "Admin";
-
-        if (!isWebRole || isTokenExpired(decoded)) {
+        // Only Firma/Admin sessions belong in this app. A Yolcu/Şoför token
+        // (e.g. left over from testing) must never be "logged in" here, or
+        // ProtectedRoute and this page's own redirect will bounce forever.
+        if (isTokenExpired(decoded) || !PANEL_ROLES.includes(decoded.role)) {
           clearStoredToken();
         } else {
           setUser(decoded);
@@ -45,15 +48,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const token = await authApi.login({ email, password });
     const decoded = decodeToken(token);
-    const isWebRole = decoded.role === "Firma" || decoded.role === "Admin";
-
-    if (!isWebRole) {
-      clearStoredToken();
+    if (!PANEL_ROLES.includes(decoded.role)) {
       throw new Error(
         "Bu panel yalnızca Firma ve Admin hesapları içindir. Yolcu/Şoför hesapları mobil uygulamayı kullanmalıdır."
       );
     }
-
     setStoredToken(token);
     setUser(decoded);
     return decoded;
