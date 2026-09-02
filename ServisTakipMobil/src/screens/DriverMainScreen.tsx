@@ -7,8 +7,6 @@ import {
   ScrollView,
   Alert,
   LayoutAnimation,
-  Platform,
-  UIManager,
   AppState,
 } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
@@ -24,13 +22,6 @@ import {
   subscribeToPassengerActivity,
   joinRoute,
 } from "../services/signalrService";
-
-if (
-  Platform.OS === "android" &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 type DriverStop = {
   id: number;
@@ -69,10 +60,9 @@ const haversineDistance = (
   return 2 * R * Math.asin(Math.sqrt(h));
 };
 
-// Başlangıç -> Bitiş eksenini, her adımda en yakın durağı seçen greedy
-// yakınlık algoritmasıyla sıralar (ID sırası yerine coğrafi sıra).
 const orderStopsByProximity = <
   T extends { latitude: number; longitude: number },
+  origin extends { latitude: number; longitude: number },
 >(
   origin: { latitude: number; longitude: number },
   stops: T[],
@@ -113,17 +103,15 @@ export default function DriverMainScreen({
   const [currentStopIndex, setCurrentStopIndex] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [routeData, setRouteData] = useState<RouteState | null>(null);
-  const driverCoordRef = useRef<{ latitude: number; longitude: number } | null>(
-    null,
-  );
+  const [isMapReady, setIsMapReady] = useState(false);
+
+  const driverCoordRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const routeRequestIdRef = useRef(0);
   const [driverCoord, setDriverCoord] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
-  const [pathTraveled, setPathTraveled] = useState<
-    { latitude: number; longitude: number }[]
-  >([]);
+  const [pathTraveled, setPathTraveled] = useState<{ latitude: number; longitude: number }[]>([]);
   const [usingSimulatedLocation, setUsingSimulatedLocation] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [routeCoordinates, setRouteCoordinates] = useState<Coordinate[]>([]);
@@ -139,7 +127,6 @@ export default function DriverMainScreen({
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const routeIdRef = useRef<string>("");
 
-  // 1. Ekran açıldığında Backend'den gerçek rotayı çek
   useEffect(() => {
     loadRouteData(selectedRouteId);
   }, [selectedRouteId]);
@@ -150,17 +137,13 @@ export default function DriverMainScreen({
 
     if (!routeIdParam) {
       const listRes = await routeService.getDriverRoutes(token);
-      if (
-        listRes.success &&
-        Array.isArray(listRes.data) &&
-        listRes.data.length > 1
-      ) {
+      if (listRes.success && Array.isArray(listRes.data) && listRes.data.length > 1) {
         onRequireRouteSelection?.();
         return;
       }
     }
 
-    const res = await routeService.getDriverRoute(token);
+    const res = await routeService.getDriverRoute(token, routeIdParam);
     if (res.success && res.data) {
       routeIdRef.current = res.data.routeId;
       setRouteData({
@@ -187,10 +170,7 @@ export default function DriverMainScreen({
 
   useEffect(() => {
     if (tripActive) {
-      timerIntervalRef.current = setInterval(
-        () => setElapsedSeconds((s) => s + 1),
-        1000,
-      );
+      timerIntervalRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
     } else if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
     }
@@ -224,7 +204,6 @@ export default function DriverMainScreen({
     setPathTraveled((prev) => [...prev.slice(-200), coord]);
 
     if (!routeIdRef.current) return;
-
     sendLocationUpdate({
       routeId: routeIdRef.current,
       latitude: lat,
@@ -237,17 +216,11 @@ export default function DriverMainScreen({
   const simulateStep = () => {
     const routeStops = routeData?.stops ?? [];
     if (routeStops.length === 0) return;
-
     setDriverCoord((prev) => {
-      const target =
-        routeStops[Math.min(currentStopIndex, routeStops.length - 1)];
-      const base = prev ?? {
-        latitude: target.latitude,
-        longitude: target.longitude,
-      };
+      const target = routeStops[Math.min(currentStopIndex, routeStops.length - 1)];
+      const base = prev ?? { latitude: target.latitude, longitude: target.longitude };
       const nextLat = base.latitude + (target.latitude - base.latitude) * 0.25;
-      const nextLng =
-        base.longitude + (target.longitude - base.longitude) * 0.25;
+      const nextLng = base.longitude + (target.longitude - base.longitude) * 0.25;
       handleLocationUpdate(nextLat, nextLng, 8.5, 0);
       return { latitude: nextLat, longitude: nextLng };
     });
@@ -295,13 +268,9 @@ export default function DriverMainScreen({
 
   const handleStartTrip = async () => {
     if (!routeIdRef.current) {
-      Alert.alert(
-        "Uyarı",
-        "Başlatılacak geçerli bir rota bulunamadı. Lütfen size araç ve rota atanmasını bekleyin.",
-      );
+      Alert.alert("Uyarı", "Başlatılacak geçerli bir rota bulunamadı.");
       return;
     }
-
     setConnecting(true);
     try {
       const token = await storageService.getToken();
@@ -309,24 +278,14 @@ export default function DriverMainScreen({
         onLogout();
         return;
       }
-
-      // SignalR bağlantısını başlat
       await startSignalRConnection(token);
-
-      //Şoförün de odaya girmesi (bağlanması) gerekiyor ki yolcuları duyabilsin
       await joinRoute(routeIdRef.current);
 
-      // Odaya katılan ve çıkan yolcuları state'e yaz
       subscribeToPassengerActivity(
-        // Gelen Guid değerlerini toLowerCase() ile küçük harfe sabitliyoruz
         (passengerId) =>
-          setActivePassengers((prev) => [
-            ...new Set([...prev, passengerId.toLowerCase()]),
-          ]),
+          setActivePassengers((prev) => [...new Set([...prev, passengerId.toLowerCase()])]),
         (passengerId) =>
-          setActivePassengers((prev) =>
-            prev.filter((id) => id !== passengerId.toLowerCase()),
-          ),
+          setActivePassengers((prev) => prev.filter((id) => id !== passengerId.toLowerCase())),
       );
 
       setTripActive(true);
@@ -337,21 +296,17 @@ export default function DriverMainScreen({
       setDriverCoord(null);
       await startLocationBroadcast();
     } catch (error) {
-      Alert.alert("Hata", "Sefer başlatılamadı. Bağlantınızı kontrol edin.");
+      Alert.alert("Hata", "Sefer başlatılamadı. Bağlantıyı kontrol edin.");
     } finally {
       setConnecting(false);
     }
   };
 
   const confirmEndTrip = () => {
-    Alert.alert(
-      "Seferi Bitir",
-      "Bu seferi sonlandırmak istediğinize emin misiniz?",
-      [
-        { text: "Vazgeç", style: "cancel" },
-        { text: "Seferi Bitir", style: "destructive", onPress: handleEndTrip },
-      ],
-    );
+    Alert.alert("Seferi Bitir", "Bu seferi sonlandırmak istediğinize emin misiniz?", [
+      { text: "Vazgeç", style: "cancel" },
+      { text: "Seferi Bitir", style: "destructive", onPress: handleEndTrip },
+    ]);
   };
 
   const handleEndTrip = async () => {
@@ -374,22 +329,17 @@ export default function DriverMainScreen({
       return;
     }
     if (index !== safeStopIndex || activeStops.length === 0) return;
-
     if (index === activeStops.length - 1) {
-      Alert.alert(
-        "Son Durak",
-        "Son durağa ulaştınız. Seferi bitirmek ister misiniz?",
-        [
-          { text: "Hayır", style: "cancel" },
-          {
-            text: "Seferi Bitir",
-            onPress: () => {
-              setCurrentStopIndex((i) => i + 1);
-              handleEndTrip();
-            },
+      Alert.alert("Son Durak", "Son durağa ulaştınız. Seferi bitirmek ister misiniz?", [
+        { text: "Hayır", style: "cancel" },
+        {
+          text: "Seferi Bitir",
+          onPress: () => {
+            setCurrentStopIndex((i) => i + 1);
+            handleEndTrip();
           },
-        ],
-      );
+        },
+      ]);
       return;
     }
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -397,7 +347,6 @@ export default function DriverMainScreen({
   };
 
   const routeStops = routeData?.stops ?? [];
-
   const activeStops = useMemo(() => {
     const filtered = routeStops.filter((s) =>
       activePassengers.includes(s.passengerId.toLowerCase()),
@@ -405,28 +354,19 @@ export default function DriverMainScreen({
     const origin =
       driverCoordRef.current ??
       (routeStops[0]
-        ? {
-            latitude: routeStops[0].latitude,
-            longitude: routeStops[0].longitude,
-          }
+        ? { latitude: routeStops[0].latitude, longitude: routeStops[0].longitude }
         : { latitude: 41.0082, longitude: 28.9784 });
     return orderStopsByProximity(origin, filtered);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeStops, activePassengers]);
 
-  const safeStopIndex = Math.min(
-    currentStopIndex,
-    Math.max(activeStops.length - 1, 0),
-  );
+  const safeStopIndex = Math.min(currentStopIndex, Math.max(activeStops.length - 1, 0));
 
   useEffect(() => {
     const remainingStops = activeStops.slice(safeStopIndex);
-
     if (remainingStops.length === 0) {
       setRouteCoordinates([]);
       return;
     }
-
     const origin = driverCoordRef.current ?? {
       latitude: remainingStops[0].latitude,
       longitude: remainingStops[0].longitude,
@@ -438,7 +378,6 @@ export default function DriverMainScreen({
         longitude: s.longitude,
       })),
     ];
-
     const requestId = ++routeRequestIdRef.current;
     mapService.getRoutePolyline(dynamicStops).then((coords) => {
       if (requestId === routeRequestIdRef.current) {
@@ -468,68 +407,43 @@ export default function DriverMainScreen({
           latitudeDelta: 0.045,
           longitudeDelta: 0.045,
         }}
+        onMapReady={() => setIsMapReady(true)}
         showsUserLocation={!usingSimulatedLocation}
         showsMyLocationButton={false}
       >
-        {routeCoordinates.length > 1 && (
+        {isMapReady && routeCoordinates.length > 1 && (
           <Polyline
+            key="active-route-line"
             coordinates={routeCoordinates}
             strokeColor="#1E4ED8"
             strokeWidth={4}
             lineJoin="round"
           />
         )}
-
-        {pathTraveled.length > 1 && (
+        {isMapReady && pathTraveled.length > 1 && (
           <Polyline
+            key="traveled-line"
             coordinates={pathTraveled}
-            strokeColor="#1E4ED8"
-            strokeWidth={4}
+            strokeColor="#60A5FA"
+            strokeWidth={3}
           />
         )}
 
-        {activeStops.length > 0 && (
-          <View style={styles.stopList}>
-            <Text style={styles.sectionTitle}>
-              DURAKLAR (SADECE AKTİF YOLCULAR)
-            </Text>
-            {activeStops.map((stop, i) => (
-              <TouchableOpacity
-                key={stop.id}
-                style={styles.stopItem}
-                onPress={() => handleAdvanceStop(i)}
-                disabled={!tripActive}
-              >
-                <View style={styles.stopMarkerContainer}>
-                  <View
-                    style={[
-                      styles.stopMarker,
-                      i < safeStopIndex && styles.stopMarkerPassed,
-                      i === safeStopIndex && styles.stopMarkerCurrent,
-                    ]}
-                  />
-                  {i < activeStops.length - 1 && (
-                    <View style={styles.stopConnector} />
-                  )}
-                </View>
-                <View style={styles.stopTextWrap}>
-                  <Text style={styles.stopName}>{stop.label}</Text>
-                  <Text style={styles.stopTime}>{stop.time}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-        {routeData && activeStops.length === 0 && (
-          <View style={styles.emptyStateBox}>
-            <Text style={styles.emptyStateText}>
-              Şu anda odaya bağlı aktif personel yok.
-            </Text>
-          </View>
-        )}
+        {/* Durak Noktaları Yalnızca Native Marker Olarak Çizilir */}
+        {isMapReady &&
+          activeStops.map((stop, i) => (
+            <Marker
+              key={`driver-stop-${stop.id}`}
+              coordinate={{ latitude: stop.latitude, longitude: stop.longitude }}
+              title={stop.label}
+              description={stop.time}
+              pinColor={i <= safeStopIndex ? "#94A3B8" : "#F59E0B"}
+            />
+          ))}
 
-        {driverCoord && (
+        {isMapReady && driverCoord && (
           <Marker
+            key="driver-current-marker"
             coordinate={driverCoord}
             title="Araç Konumu"
             description="Canlı konum"
@@ -538,48 +452,33 @@ export default function DriverMainScreen({
         )}
       </MapView>
 
+      {/* Üst Bar */}
       <View style={styles.topBar}>
         <View style={styles.brandChip}>
           <Ionicons name="bus-outline" size={18} color="#1D4ED8" />
-          <Text style={styles.brandText}>
-            {routeData?.name || "Rota bekleniyor"}
-          </Text>
+          <Text style={styles.brandText}>{routeData?.name || "Rota bekleniyor"}</Text>
         </View>
         <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
           <Text style={styles.logoutText}>Çıkış</Text>
         </TouchableOpacity>
       </View>
 
+      {/* Alt Bilgi Paneli (Sheet) */}
       <View style={[styles.sheet, { height: sheetExpanded ? "76%" : "46%" }]}>
-        <TouchableOpacity
-          style={styles.dragHandleContainer}
-          onPress={toggleSheet}
-        >
+        <TouchableOpacity style={styles.dragHandleContainer} onPress={toggleSheet}>
           <View style={styles.dragHandle} />
         </TouchableOpacity>
-
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.headerRow}>
             <View>
               <View style={styles.badgeRow}>
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {routeData?.number || "API"}
-                  </Text>
+                  <Text style={styles.badgeText}>{routeData?.number || "SRV"}</Text>
                 </View>
-                <Text style={styles.statusText}>
-                  {tripActive ? "Aktif" : "Hazır"}
-                </Text>
-                <View
-                  style={[
-                    styles.statusDot,
-                    tripActive && styles.statusDotActive,
-                  ]}
-                />
+                <Text style={styles.statusText}>{tripActive ? "Aktif" : "Hazır"}</Text>
+                <View style={[styles.statusDot, tripActive && styles.statusDotActive]} />
               </View>
-              <Text style={styles.title}>
-                {routeData?.name || "Kayıtlı aktif rota yok"}
-              </Text>
+              <Text style={styles.title}>{routeData?.name || "Kayıtlı aktif rota yok"}</Text>
             </View>
             <View style={styles.capacityBox}>
               <Text
@@ -590,39 +489,28 @@ export default function DriverMainScreen({
               >
                 {occupancy}
               </Text>
-              <Text style={styles.capacityLabel}>
-                {routeData?.capacity || 0}
-              </Text>
+              <Text style={styles.capacityLabel}>{routeData?.capacity || 0}</Text>
             </View>
           </View>
 
           <View style={styles.summaryCard}>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Toplam süre</Text>
-              <Text style={styles.summaryValue}>
-                {formatElapsed(elapsedSeconds)}
-              </Text>
+              <Text style={styles.summaryValue}>{formatElapsed(elapsedSeconds)}</Text>
             </View>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Sonraki durak</Text>
-              <Text style={styles.summaryValue}>
-                {nextStop?.label || "Bekleniyor"}
-              </Text>
+              <Text style={styles.summaryValue}>{nextStop?.label || "Bekleniyor"}</Text>
             </View>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Araç</Text>
-              <Text style={styles.summaryValue}>
-                {routeData?.vehicleModel || "Bilgi Yok"}
-              </Text>
+              <Text style={styles.summaryValue}>{routeData?.vehicleModel || "Bilgi Yok"}</Text>
             </View>
           </View>
 
           <View style={styles.controlsRow}>
             <TouchableOpacity
-              style={[
-                styles.primaryButton,
-                connecting && styles.primaryButtonDisabled,
-              ]}
+              style={[styles.primaryButton, connecting && styles.primaryButtonDisabled]}
               onPress={handleStartTrip}
               disabled={connecting || tripActive}
             >
@@ -630,8 +518,8 @@ export default function DriverMainScreen({
                 {connecting
                   ? "Bağlanıyor..."
                   : tripActive
-                    ? "Sefer açık"
-                    : "Seferi başlat"}
+                    ? "Sefer Aktif"
+                    : "Seferi Başlat"}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -643,19 +531,16 @@ export default function DriverMainScreen({
             </TouchableOpacity>
           </View>
 
-          {routeStops.length > 0 && (
+          {/* Durak Listesi Artık Sadece Bu ScrollView İçinde Yer Alır */}
+          {routeStops.length > 0 ? (
             <View style={styles.stopList}>
-              <Text style={styles.sectionTitle}>
-                DURAKLAR (SADECE AKTİF YOLCULAR)
-              </Text>
+              <Text style={styles.sectionTitle}>DURAKLAR (SADECE AKTİF YOLCULAR)</Text>
               {routeStops.map((stop, i) => {
-                // Eğer yolcu uygulamada yayını izlemiyorsa Listede de soluk (pasif) gösterelim
-                const isActive = activePassengers.includes(stop.passengerId);
-
+                const isActive = activePassengers.includes(stop.passengerId.toLowerCase());
                 return (
                   <TouchableOpacity
                     key={stop.id}
-                    style={[styles.stopItem, !isActive && { opacity: 0.4 }]} // Pasifse soluk yap
+                    style={[styles.stopItem, !isActive && { opacity: 0.4 }]}
                     onPress={() => handleAdvanceStop(i)}
                     disabled={!tripActive || !isActive}
                   >
@@ -667,9 +552,7 @@ export default function DriverMainScreen({
                           i === currentStopIndex && styles.stopMarkerCurrent,
                         ]}
                       />
-                      {i < routeStops.length - 1 && (
-                        <View style={styles.stopConnector} />
-                      )}
+                      {i < routeStops.length - 1 && <View style={styles.stopConnector} />}
                     </View>
                     <View style={styles.stopTextWrap}>
                       <Text style={styles.stopName}>
@@ -681,13 +564,10 @@ export default function DriverMainScreen({
                 );
               })}
             </View>
-          )}
-
-          {!routeData && (
+          ) : (
             <View style={styles.emptyStateBox}>
               <Text style={styles.emptyStateText}>
-                Size atanmış aktif bir rota bulunamadı. Lütfen firma
-                yöneticinizin bir araç ve rota atamasını bekleyin.
+                Size atanmış aktif bir rota bulunamadı. Lütfen yöneticinizin bir atama yapmasını bekleyin.
               </Text>
             </View>
           )}
@@ -872,18 +752,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-  },
-  actionButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
   },
   countText: {
     width: 72,
