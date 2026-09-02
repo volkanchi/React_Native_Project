@@ -250,7 +250,6 @@ namespace ServisTakipApi.Services
             await _routeRepository.RemoveRouteStopAndUpdateOrdersAsync(stop, route.Stops);
             return Response<bool>.Successful("Servisten başarıyla ayrıldınız.", true);
         }
-        // YARDIMCI METOT: Durakları harita çizgisine (Polyline) göre sıraya dizer
         private void ReorderRouteStops(Models.Route route)
         {
             if (route.RoutePath == null || !route.Stops.Any()) return;
@@ -355,6 +354,64 @@ namespace ServisTakipApi.Services
             };
 
             return Response<object>.Successful("Rota önizlemesi getirildi.", result);
+        }
+        public async Task<Response<object>> GetDriverActiveRouteAsync(Guid userId, Guid? routeId = null)
+        {
+            var route = routeId.HasValue
+                ? await _routeRepository.GetRouteByIdAndDriverUserIdAsync(routeId.Value, userId)
+                : await _routeRepository.GetActiveRouteByDriverUserIdAsync(userId);
+
+            if (route == null)
+                return Response<object>.Fail("Üzerinize atanmış aktif bir rota bulunamadı.");
+
+            return Response<object>.Successful("Aktif rota getirildi.", ToDriverRouteDto(route));
+        }
+
+        public async Task<Response<IEnumerable<object>>> GetDriverRoutesAsync(Guid userId)
+        {
+            try
+            {
+                var routes = await _routeRepository.GetRoutesByDriverUserIdAsync(userId);
+                var result = routes.Select(r => new
+                {
+                    RouteId = r.Id,
+                    Name = r.Name,
+                    RouteCode = r.RouteCode,
+                    Plate = r.Vehicle?.PlateNumber ?? "Araç Atanmadı"
+                });
+
+                return Response<IEnumerable<object>>.Successful("Servisler getirildi.", result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to fetch driver routes for user {UserId}", userId);
+                return Response<IEnumerable<object>>.Fail("Servisler getirilirken bir hata oluştu.");
+            }
+        }
+        private static object ToDriverRouteDto(Models.Route route)
+        {
+            return new
+            {
+                RouteId = route.Id,
+                Name = route.Name,
+                RouteCode = route.RouteCode,
+                Plate = route.Vehicle?.PlateNumber ?? "Araç Atanmadı",
+                VehicleModel = route.Vehicle?.BrandAndModel ?? "Bilinmiyor",
+                Capacity = route.Vehicle?.Capacity ?? 0,
+                Stops = route.Stops.OrderBy(s => s.StopOrder).Select(s => new
+                {
+                    Id = s.Id,
+                    PassengerId = s.PassengerId,
+                    PassengerName = s.Passenger != null
+                        ? $"{s.Passenger.Name} {s.Passenger.Surname}"
+                        : $"Durak {s.StopOrder}",
+                    Label = $"Durak {s.StopOrder}",
+                    Time = "Bekleniyor",
+                    Latitude = s.Location.Y,
+                    Longitude = s.Location.X,
+                    IsActive = s.IsActive
+                })
+            };
         }
     }
 }

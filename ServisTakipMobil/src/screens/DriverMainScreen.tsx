@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -16,12 +16,13 @@ import * as Location from "expo-location";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { storageService } from "../services/storageService";
 import { routeService } from "../services/routeService";
+import { mapService, Coordinate } from "../services/mapService";
 import {
   startSignalRConnection,
   stopSignalRConnection,
   sendLocationUpdate,
   subscribeToPassengerActivity,
-  joinRoute
+  joinRoute,
 } from "../services/signalrService";
 
 if (
@@ -51,17 +52,71 @@ type RouteState = {
   stops: DriverStop[];
 };
 
+const toRad = (v: number) => (v * Math.PI) / 180;
+
+const haversineDistance = (
+  a: { latitude: number; longitude: number },
+  b: { latitude: number; longitude: number },
+) => {
+  const R = 6371;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLon = toRad(b.longitude - a.longitude);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.latitude)) *
+      Math.cos(toRad(b.latitude)) *
+      Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+};
+
+// Başlangıç -> Bitiş eksenini, her adımda en yakın durağı seçen greedy
+// yakınlık algoritmasıyla sıralar (ID sırası yerine coğrafi sıra).
+const orderStopsByProximity = <
+  T extends { latitude: number; longitude: number },
+>(
+  origin: { latitude: number; longitude: number },
+  stops: T[],
+): T[] => {
+  const remaining = [...stops];
+  const ordered: T[] = [];
+  let current = origin;
+  while (remaining.length > 0) {
+    let nearestIdx = 0;
+    let nearestDist = Infinity;
+    remaining.forEach((s, i) => {
+      const d = haversineDistance(current, s);
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearestIdx = i;
+      }
+    });
+    const [next] = remaining.splice(nearestIdx, 1);
+    ordered.push(next);
+    current = next;
+  }
+  return ordered;
+};
+
 interface DriverMainScreenProps {
   onLogout: () => void;
+  selectedRouteId?: string;
+  onRequireRouteSelection?: () => void;
 }
 
-export default function DriverMainScreen({ onLogout }: DriverMainScreenProps) {
+export default function DriverMainScreen({
+  onLogout,
+  selectedRouteId,
+  onRequireRouteSelection,
+}: DriverMainScreenProps) {
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [tripActive, setTripActive] = useState(false);
   const [currentStopIndex, setCurrentStopIndex] = useState(0);
-  const [occupancy, setOccupancy] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [routeData, setRouteData] = useState<RouteState | null>(null);
+  const driverCoordRef = useRef<{ latitude: number; longitude: number } | null>(
+    null,
+  );
+  const routeRequestIdRef = useRef(0);
   const [driverCoord, setDriverCoord] = useState<{
     latitude: number;
     longitude: number;
@@ -71,32 +126,43 @@ export default function DriverMainScreen({ onLogout }: DriverMainScreenProps) {
   >([]);
   const [usingSimulatedLocation, setUsingSimulatedLocation] = useState(false);
   const [connecting, setConnecting] = useState(false);
-
-  // Aktif yolcuları tutan state
+  const [routeCoordinates, setRouteCoordinates] = useState<Coordinate[]>([]);
   const [activePassengers, setActivePassengers] = useState<string[]>([]);
+
+  const toggleSheet = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setSheetExpanded((expanded) => !expanded);
+  };
 
   const watchSubRef = useRef<Location.LocationSubscription | null>(null);
   const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const routeIdRef = useRef<string>("");
 
-  const toggleSheet = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setSheetExpanded((value) => !value);
-  };
-
   // 1. Ekran açıldığında Backend'den gerçek rotayı çek
   useEffect(() => {
-    loadRouteData();
-  }, []);
+    loadRouteData(selectedRouteId);
+  }, [selectedRouteId]);
 
-  const loadRouteData = async () => {
+  const loadRouteData = async (routeIdParam?: string) => {
     const token = await storageService.getToken();
     if (!token) return;
 
+    if (!routeIdParam) {
+      const listRes = await routeService.getDriverRoutes(token);
+      if (
+        listRes.success &&
+        Array.isArray(listRes.data) &&
+        listRes.data.length > 1
+      ) {
+        onRequireRouteSelection?.();
+        return;
+      }
+    }
+
     const res = await routeService.getDriverRoute(token);
     if (res.success && res.data) {
-      routeIdRef.current = res.data.routeId; // Backend'den gelen Guid
+      routeIdRef.current = res.data.routeId;
       setRouteData({
         routeId: res.data.routeId,
         name: res.data.name,
@@ -108,7 +174,7 @@ export default function DriverMainScreen({ onLogout }: DriverMainScreenProps) {
         stops: res.data.stops.map((s: any) => ({
           id: s.id,
           passengerId: s.passengerId,
-          label: s.label,
+          label: s.passengerName || s.label,
           time: s.time,
           latitude: s.latitude,
           longitude: s.longitude,
@@ -153,6 +219,7 @@ export default function DriverMainScreen({ onLogout }: DriverMainScreenProps) {
     heading?: number | null,
   ) => {
     const coord = { latitude: lat, longitude: lng };
+    driverCoordRef.current = coord;
     setDriverCoord(coord);
     setPathTraveled((prev) => [...prev.slice(-200), coord]);
 
@@ -245,7 +312,7 @@ export default function DriverMainScreen({ onLogout }: DriverMainScreenProps) {
 
       // SignalR bağlantısını başlat
       await startSignalRConnection(token);
-      
+
       //Şoförün de odaya girmesi (bağlanması) gerekiyor ki yolcuları duyabilsin
       await joinRoute(routeIdRef.current);
 
@@ -266,6 +333,7 @@ export default function DriverMainScreen({ onLogout }: DriverMainScreenProps) {
       setElapsedSeconds(0);
       setCurrentStopIndex(0);
       setPathTraveled([]);
+      driverCoordRef.current = null;
       setDriverCoord(null);
       await startLocationBroadcast();
     } catch (error) {
@@ -301,14 +369,13 @@ export default function DriverMainScreen({ onLogout }: DriverMainScreenProps) {
   }, []);
 
   const handleAdvanceStop = (index: number) => {
-    const routeStops = routeData?.stops ?? [];
     if (!tripActive) {
       Alert.alert("Uyarı", "Durak işaretlemek için önce seferi başlatın.");
       return;
     }
-    if (index !== currentStopIndex || routeStops.length === 0) return;
+    if (index !== safeStopIndex || activeStops.length === 0) return;
 
-    if (index === routeStops.length - 1) {
+    if (index === activeStops.length - 1) {
       Alert.alert(
         "Son Durak",
         "Son durağa ulaştınız. Seferi bitirmek ister misiniz?",
@@ -329,18 +396,65 @@ export default function DriverMainScreen({ onLogout }: DriverMainScreenProps) {
     setCurrentStopIndex((i) => i + 1);
   };
 
-  const adjustOccupancy = (delta: number) => {
-    setOccupancy((prev) =>
-      Math.max(0, Math.min(routeData?.capacity || 0, prev + delta)),
-    );
-  };
-
   const routeStops = routeData?.stops ?? [];
+
+  const activeStops = useMemo(() => {
+    const filtered = routeStops.filter((s) =>
+      activePassengers.includes(s.passengerId.toLowerCase()),
+    );
+    const origin =
+      driverCoordRef.current ??
+      (routeStops[0]
+        ? {
+            latitude: routeStops[0].latitude,
+            longitude: routeStops[0].longitude,
+          }
+        : { latitude: 41.0082, longitude: 28.9784 });
+    return orderStopsByProximity(origin, filtered);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeStops, activePassengers]);
+
+  const safeStopIndex = Math.min(
+    currentStopIndex,
+    Math.max(activeStops.length - 1, 0),
+  );
+
+  useEffect(() => {
+    const remainingStops = activeStops.slice(safeStopIndex);
+
+    if (remainingStops.length === 0) {
+      setRouteCoordinates([]);
+      return;
+    }
+
+    const origin = driverCoordRef.current ?? {
+      latitude: remainingStops[0].latitude,
+      longitude: remainingStops[0].longitude,
+    };
+    const dynamicStops: Coordinate[] = [
+      origin,
+      ...remainingStops.map((s) => ({
+        latitude: s.latitude,
+        longitude: s.longitude,
+      })),
+    ];
+
+    const requestId = ++routeRequestIdRef.current;
+    mapService.getRoutePolyline(dynamicStops).then((coords) => {
+      if (requestId === routeRequestIdRef.current) {
+        setRouteCoordinates(coords);
+      }
+    });
+  }, [activeStops, safeStopIndex]);
+
+  const occupancy = Math.min(
+    activePassengers.length,
+    routeData?.capacity || activePassengers.length,
+  );
   const occupancyPct = routeData?.capacity ? occupancy / routeData.capacity : 0;
-  const nextStop =
-    routeStops[Math.min(currentStopIndex, Math.max(routeStops.length - 1, 0))];
-  const mapCenter = routeStops[0]
-    ? { latitude: routeStops[0].latitude, longitude: routeStops[0].longitude }
+  const nextStop = activeStops[safeStopIndex];
+  const mapCenter = activeStops[0]
+    ? { latitude: activeStops[0].latitude, longitude: activeStops[0].longitude }
     : { latitude: 41.0082, longitude: 28.9784 };
 
   return (
@@ -357,14 +471,12 @@ export default function DriverMainScreen({ onLogout }: DriverMainScreenProps) {
         showsUserLocation={!usingSimulatedLocation}
         showsMyLocationButton={false}
       >
-        {routeStops.length > 1 && (
+        {routeCoordinates.length > 1 && (
           <Polyline
-            coordinates={routeStops.map((s) => ({
-              latitude: s.latitude,
-              longitude: s.longitude,
-            }))}
-            strokeColor="#CBD5E1"
+            coordinates={routeCoordinates}
+            strokeColor="#1E4ED8"
             strokeWidth={4}
+            lineJoin="round"
           />
         )}
 
@@ -376,32 +488,45 @@ export default function DriverMainScreen({ onLogout }: DriverMainScreenProps) {
           />
         )}
 
-        {routeStops.map((stop, i) => {
-          // Eğer bu durağın yolcusu 'activePassengers' dizisinde yoksa haritaya pin basma
-          if (!activePassengers.includes(stop.passengerId.toLowerCase())) {
-            return null;
-          }
-
-          // Eğer listede varsa pini (Marker) oluştur ve bas
-          return (
-            <Marker
-              key={stop.id}
-              coordinate={{
-                latitude: stop.latitude,
-                longitude: stop.longitude,
-              }}
-              title={stop.label}
-              description={stop.time}
-              pinColor={
-                i < currentStopIndex
-                  ? "#94A3B8"
-                  : i === currentStopIndex
-                    ? "#1E4ED8"
-                    : "#22C55E"
-              }
-            />
-          );
-        })}
+        {activeStops.length > 0 && (
+          <View style={styles.stopList}>
+            <Text style={styles.sectionTitle}>
+              DURAKLAR (SADECE AKTİF YOLCULAR)
+            </Text>
+            {activeStops.map((stop, i) => (
+              <TouchableOpacity
+                key={stop.id}
+                style={styles.stopItem}
+                onPress={() => handleAdvanceStop(i)}
+                disabled={!tripActive}
+              >
+                <View style={styles.stopMarkerContainer}>
+                  <View
+                    style={[
+                      styles.stopMarker,
+                      i < safeStopIndex && styles.stopMarkerPassed,
+                      i === safeStopIndex && styles.stopMarkerCurrent,
+                    ]}
+                  />
+                  {i < activeStops.length - 1 && (
+                    <View style={styles.stopConnector} />
+                  )}
+                </View>
+                <View style={styles.stopTextWrap}>
+                  <Text style={styles.stopName}>{stop.label}</Text>
+                  <Text style={styles.stopTime}>{stop.time}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+        {routeData && activeStops.length === 0 && (
+          <View style={styles.emptyStateBox}>
+            <Text style={styles.emptyStateText}>
+              Şu anda odaya bağlı aktif personel yok.
+            </Text>
+          </View>
+        )}
 
         {driverCoord && (
           <Marker
@@ -571,19 +696,11 @@ export default function DriverMainScreen({ onLogout }: DriverMainScreenProps) {
 
       {tripActive && (
         <View style={styles.bottomActionBar}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => adjustOccupancy(-1)}
-          >
-            <Feather name="minus" size={18} color="#0F172A" />
-          </TouchableOpacity>
-          <Text style={styles.countText}>{occupancy}</Text>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => adjustOccupancy(1)}
-          >
-            <Feather name="plus" size={18} color="#0F172A" />
-          </TouchableOpacity>
+          <View style={styles.countText}>
+            <Text style={{ fontSize: 18, fontWeight: "800", color: "#0F172A" }}>
+              {occupancy}/{routeData?.capacity || 0}
+            </Text>
+          </View>
         </View>
       )}
     </View>

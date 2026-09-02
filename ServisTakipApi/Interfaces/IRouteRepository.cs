@@ -25,6 +25,8 @@ namespace ServisTakipApi.Interfaces
         Task UpdateRouteStopsAsync(IEnumerable<RouteStop> stops);
         Task<IEnumerable<Models.Route>> GetRoutesByPassengerIdAsync(Guid passengerId);
         Task<Models.Route?> GetActiveRouteByDriverUserIdAsync(Guid userId);
+        Task<IEnumerable<Models.Route>> GetRoutesByDriverUserIdAsync(Guid userId);
         Task<IEnumerable<Models.Route>> GetRoutesByCompanyIdAsync(Guid companyId);
+        Task<Models.Route?> GetRouteByIdAndDriverUserIdAsync(Guid routeId, Guid userId);
     }
 }

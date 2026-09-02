@@ -20,7 +20,7 @@ namespace ServisTakipApi.Controllers
             _routeService = routeService;
         }
 
-        
+
         [HttpPost("create")]
         [Authorize(Roles = "Firma")]
         public async Task<IActionResult> CreateRoute([FromBody] CreateRouteDto createDto)
@@ -34,7 +34,7 @@ namespace ServisTakipApi.Controllers
             var response = await _routeService.CreateRouteAsync(companyId.Value, createDto);
             return response.Success ? Ok(response) : BadRequest(response);
         }
-        
+
         [HttpPut("{routeId:guid}")]
         [Authorize(Roles = "Firma")]
         public async Task<IActionResult> UpdateRoute(Guid routeId, [FromBody] UpdateRouteDto updateDto)
@@ -48,7 +48,7 @@ namespace ServisTakipApi.Controllers
             var response = await _routeService.UpdateRouteAsync(routeId, companyId.Value, updateDto);
             return response.Success ? Ok(response) : BadRequest(response);
         }
-        
+
         [HttpDelete("{routeId:guid}")]
         [Authorize(Roles = "Firma")]
         public async Task<IActionResult> DeleteRoute(Guid routeId)
@@ -64,7 +64,7 @@ namespace ServisTakipApi.Controllers
         private Guid? GetCompanyId()
         {
             // Token'daki CompanyId claim'ini oku, yoksa User ID üzerinden kompanse et
-            var companyIdClaim = User.FindFirst("CompanyId")?.Value 
+            var companyIdClaim = User.FindFirst("CompanyId")?.Value
                                  ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             return Guid.TryParse(companyIdClaim, out var companyId) ? companyId : null;
@@ -83,13 +83,25 @@ namespace ServisTakipApi.Controllers
         }
         [HttpGet("driver-route")]
         [Authorize(Roles = "Sofor")]
-        public async Task<IActionResult> GetDriverRoute()
+        public async Task<IActionResult> GetDriverRoute([FromQuery] Guid? routeId)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdClaim))
                 return Unauthorized(Response<string>.Fail("Kullanıcı kimliği doğrulanamadı."));
 
-            var result = await _routeService.GetDriverActiveRouteAsync(Guid.Parse(userIdClaim));
+            var result = await _routeService.GetDriverActiveRouteAsync(Guid.Parse(userIdClaim), routeId);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+        [HttpGet("driver-routes")]
+        [Authorize(Roles = "Sofor")]
+        public async Task<IActionResult> GetDriverRoutes()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized(Response<string>.Fail("Kullanıcı kimliği doğrulanamadı."));
+
+            var result = await _routeService.GetDriverRoutesAsync(Guid.Parse(userIdClaim));
             return result.Success ? Ok(result) : BadRequest(result);
         }
     }

@@ -183,5 +183,33 @@ namespace ServisTakipApi.Repositories
                 .AsNoTracking()
                 .ToListAsync();
         }
+        public async Task<IEnumerable<Models.Route>> GetRoutesByDriverUserIdAsync(Guid userId)
+        {
+            return await _context.Routes
+                .Include(r => r.Vehicle)
+                .Join(_context.Drivers,
+                      route => route.DriverId,
+                      driver => driver.Id,
+                      (route, driver) => new { Route = route, Driver = driver })
+                .Where(x => x.Driver.UserId == userId && !x.Route.Deleted)
+                .Select(x => x.Route)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        public async Task<Models.Route?> GetRouteByIdAndDriverUserIdAsync(Guid routeId, Guid userId)
+        {
+            return await _context.Routes
+                .Include(r => r.Vehicle)
+                .Include(r => r.Stops).ThenInclude(s => s.Passenger)
+                .Join(_context.Drivers,
+                      route => route.DriverId,
+                      driver => driver.Id,
+                      (route, driver) => new { Route = route, Driver = driver })
+                .Where(x => x.Route.Id == routeId && x.Driver.UserId == userId && !x.Route.Deleted)
+                .Select(x => x.Route)
+                .FirstOrDefaultAsync();
+        }
+
     }
 }

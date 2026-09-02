@@ -114,10 +114,12 @@ export const routeService = {
       return { success: false, message: "Bağlantı hatası." };
     }
   },
-  getDriverRoute: async (token: string) => {
+  getDriverRoute: async (token: string, routeId?: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/Route/driver-route`, {
-        // Controller adınıza göre /Route kısmını ayarlayın
+      const url = routeId
+        ? `${API_BASE_URL}/Route/driver-route?routeId=${routeId}`
+        : `${API_BASE_URL}/Route/driver-route`;
+      const response = await fetch(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -128,23 +130,41 @@ export const routeService = {
       const responseText = await response.text();
 
       if (!response.ok) {
-        return {
-          success: false,
-          message: `API Hatası (Status: ${response.status})`,
-        };
+        return { success: false, message: `API Hatası (Status: ${response.status})` };
       }
-
       if (!responseText) {
         return { success: false, message: "Sunucudan boş yanıt döndü." };
       }
-
       return JSON.parse(responseText);
     } catch (error) {
       console.error("Get Driver Route Error:", error);
       return { success: false, message: "Bağlantı hatası." };
     }
   },
-  // GET: /api/PassengerRoute/preview/{routeCode}
+  getDriverRoutes: async (token: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/Route/driver-routes`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        return { success: false, message: `API Hatası (Status: ${response.status})` };
+      }
+      if (!responseText) {
+        return { success: false, message: "Sunucudan boş yanıt döndü." };
+      }
+      return JSON.parse(responseText);
+    } catch (error) {
+      console.error("Get Driver Routes Error:", error);
+      return { success: false, message: "Bağlantı hatası." };
+    }
+  },
   previewRoute: async (routeCode: string, token: string) => {
     try {
       const response = await fetch(

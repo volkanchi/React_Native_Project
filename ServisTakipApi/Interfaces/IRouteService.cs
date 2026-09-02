@@ -19,5 +19,7 @@ namespace ServisTakipApi.Interfaces
         Task<Response<object>> GetDriverActiveRouteAsync(Guid userId);
         Task<Response<object>> PreviewRouteForJoinAsync(string routeCode);
         Task<Response<IEnumerable<RouteResponseDto>>> GetRoutesByCompanyAsync(Guid companyId);
+        Task<Response<object>> GetDriverActiveRouteAsync(Guid userId, Guid? routeId = null);
+        Task<Response<IEnumerable<object>>> GetDriverRoutesAsync(Guid userId);
     }
 }
