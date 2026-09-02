@@ -12,6 +12,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 
+ENV DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false
+
 ENV DOTNET_gcServer=0
 ENV DOTNET_gcConcurrent=0
 ENV DOTNET_EnableDiagnostics=0

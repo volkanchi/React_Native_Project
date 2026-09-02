@@ -12,7 +12,13 @@ using System.Text;
 using System.Text.Json.Serialization;
 using ServisTakipApi.Hubs; // SignalR LocationHub sınıfını tanıyabilmesi için eklendi
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args
+});
+
+builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: false);
+builder.Configuration.AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false);
 
 // 1. TokenService'i Sisteme Tanıtma
 builder.Services.AddScoped<ITokenService, TokenService>();
