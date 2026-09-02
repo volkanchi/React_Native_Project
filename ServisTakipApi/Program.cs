@@ -120,25 +120,11 @@ builder.Services.AddControllers().AddJsonOptions(x =>
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowMobile", builder =>
-        builder.SetIsOriginAllowed(origin =>
-                {
-                    // "WithOrigins" does not support wildcards for host/port, so any
-                    // localhost/LAN port (used by the Vite dev server, emulators, etc.)
-                    // is matched explicitly here instead.
-                    if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
-                    {
-                        return uri.Host is "localhost" or "127.0.0.1"
-                            || uri.Host.StartsWith("192.168.")
-                            || uri.Host.StartsWith("10.");
-                    }
-                    return false;
-                })
-               .AllowAnyMethod()
-               .AllowAnyHeader()
-               .AllowCredentials()); // SignalR için Credentials izni eklendi
-});
+    options.AddPolicy("AllowMobile", policy =>
+        policy.SetIsOriginAllowed(origin => true) // Tüm kaynaklara (localhost ve mobil) izin verir
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials()));
 
 var app = builder.Build();
 
