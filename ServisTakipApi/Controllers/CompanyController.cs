@@ -6,6 +6,7 @@ using ServisTakipApi.DTOs.Response;
 using ServisTakipApi.Interfaces;
 using ServisTakipApi.Models;
 using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace ServisTakipApi.Controllers
@@ -49,9 +50,12 @@ namespace ServisTakipApi.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var companyIdClaim = User.FindFirst("CompanyId")?.Value;
-            if (!Guid.TryParse(companyIdClaim, out var companyId))
-                return Unauthorized(Response<bool>.Fail("Firma kimlik bilgisi doğrulanamadı."));
+            // Token'daki CompanyId claim'ini oku, yoksa User ID üzerinden kompanse et
+            var companyIdClaim = User.FindFirst("CompanyId")?.Value 
+                                 ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(companyIdClaim) || !Guid.TryParse(companyIdClaim, out var companyId))
+                return Unauthorized(Response<string>.Fail("Firma kimliği doğrulanamadı."));
 
             var response = await _companyService.UpdateCompanyAsync(companyId, companyDto);
             return response.Success ? Ok(response) : BadRequest(response);

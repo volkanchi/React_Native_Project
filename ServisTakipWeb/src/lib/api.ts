@@ -17,7 +17,7 @@ import type {
   VehicleResponse,
 } from "@/types";
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+const baseURL = import.meta.env.VITE_API_BASE_URL || "https://servis-takip-api-anir.onrender.com/api";
 
 export const http = axios.create({ baseURL });
 

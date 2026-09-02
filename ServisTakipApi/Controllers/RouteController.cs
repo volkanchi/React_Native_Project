@@ -63,7 +63,10 @@ namespace ServisTakipApi.Controllers
 
         private Guid? GetCompanyId()
         {
-            var companyIdClaim = User.FindFirst("CompanyId")?.Value;
+            // Token'daki CompanyId claim'ini oku, yoksa User ID üzerinden kompanse et
+            var companyIdClaim = User.FindFirst("CompanyId")?.Value 
+                                 ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
             return Guid.TryParse(companyIdClaim, out var companyId) ? companyId : null;
         }
 

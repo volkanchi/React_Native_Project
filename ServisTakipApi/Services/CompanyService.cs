@@ -57,7 +57,7 @@ namespace ServisTakipApi.Services
                 // Add company
                 var addedCompany = await _companyRepository.AddCompanyAsync(company);
                 _logger.LogInformation("Şirket başarıyla kaydedildi - CompanyId: {CompanyId}, CompanyName: {CompanyName}", addedCompany.Id, addedCompany.CompanyName);
-
+                user.CompanyId = addedCompany.Id;
                 // Add associated user
                 await _userRepository.AddUserAsync(user);
                 _logger.LogInformation("Şirket için yönetici kullanıcı oluşturuldu - UserId: {UserId}", user.Id);

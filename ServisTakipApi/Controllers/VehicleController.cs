@@ -4,6 +4,7 @@ using ServisTakipApi.DTOs.VehicleDTOs;
 using ServisTakipApi.DTOs.Response;
 using ServisTakipApi.Interfaces;
 using ServisTakipApi.Services;
+using System.Security.Claims;
 
 namespace ServisTakipApi.Controllers
 {
@@ -70,7 +71,10 @@ namespace ServisTakipApi.Controllers
 
         private Guid? GetCompanyId()
         {
-            var claim = User.FindFirst("CompanyId")?.Value;
+            // Token'daki CompanyId claim'ini oku, yoksa User ID üzerinden kompanse et
+            var claim = User.FindFirst("CompanyId")?.Value 
+                        ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
             return Guid.TryParse(claim, out var companyId) ? companyId : null;
         }
     }

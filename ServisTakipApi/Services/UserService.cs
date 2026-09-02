@@ -13,11 +13,13 @@ namespace ServisTakipApi.Services
     {
         private readonly IUserRepository _userRepository;
         private readonly ITokenService _tokenService;
+        private readonly ICompanyRepository _companyRepository;
 
-        public UserService(IUserRepository userRepository, ITokenService tokenService)
+        public UserService(IUserRepository userRepository, ITokenService tokenService, ICompanyRepository companyRepository)
         {
             _userRepository = userRepository;
             _tokenService = tokenService;
+            _companyRepository = companyRepository;
         }
 
         public async Task<Response<User>> RegisterUserAsync(UserRegisterDto registerUserDto)
@@ -72,6 +74,15 @@ namespace ServisTakipApi.Services
                 if (!isPasswordValid)
                 {
                     return Response<string>.Fail("E-posta adresi veya şifre hatalı."); // Güvenlik: Hangisinin hatalı olduğunu söylemiyoruz
+                }
+                if (user.Role == UserRole.Firma && !user.CompanyId.HasValue)
+                {
+                    var company = await _companyRepository.GetCompanyByUsernameAsync(user.Username!);
+                    if (company != null)
+                    {
+                        user.CompanyId = company.Id;
+                        await _userRepository.UpdateUserAsync(user);
+                    }
                 }
 
                 // 4. Şifre doğruysa Token üret
