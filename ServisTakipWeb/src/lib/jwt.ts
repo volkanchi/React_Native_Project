@@ -1,8 +1,6 @@
 import { jwtDecode } from "jwt-decode";
 import type { DecodedToken, UserRole } from "@/types";
 
-// ASP.NET Core writes claims using the long-form ClaimTypes URIs by default,
-// so we have to look the values up by those keys instead of short names.
 const CLAIM_NAMEID =
   "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier";
 const CLAIM_EMAIL =
@@ -13,14 +11,68 @@ const CLAIM_COMPANY_ID = "CompanyId";
 
 type RawClaims = Record<string, unknown> & { exp: number };
 
-export function decodeToken(token: string): DecodedToken {
-  const raw = jwtDecode<RawClaims>(token);
+const ROLE_MAP: Record<string, UserRole> = {
+  "1": "Yolcu",
+  "2": "Sofor",
+  "3": "Firma",
+  "4": "Admin",
+  Yolcu: "Yolcu",
+  Sofor: "Sofor",
+  Şoför: "Sofor",
+  Firma: "Firma",
+  Admin: "Admin",
+};
+
+export function decodeToken(token: unknown): DecodedToken {
+  let tokenStr = "";
+  if (typeof token === "string") {
+    tokenStr = token;
+  } else if (token && typeof token === "object") {
+    tokenStr =
+      (token as any).token ||
+      (token as any).accessToken ||
+      (token as any).data ||
+      "";
+  }
+
+  if (!tokenStr || typeof tokenStr !== "string") {
+    throw new Error("Geçersiz token: Token metin (string) formatında olmalıdır.");
+  }
+
+  const raw = jwtDecode<RawClaims>(tokenStr);
+
+  const rawRole =
+    raw[CLAIM_ROLE] ??
+    raw["role"] ??
+    raw["Role"] ??
+    raw["roles"];
+
+  const roleValue = Array.isArray(rawRole) ? rawRole[0] : rawRole;
+  const roleStr = String(roleValue ?? "").trim();
+  const normalizedRole = ROLE_MAP[roleStr] ?? (roleStr as UserRole);
+
+  const email = String(
+    raw[CLAIM_EMAIL] ?? raw["email"] ?? raw["Email"] ?? ""
+  ).trim();
+
+  const userId = String(
+    raw[CLAIM_NAMEID] ??
+      raw["nameid"] ??
+      raw["sub"] ??
+      raw["userId"] ??
+      raw["UserId"] ??
+      raw["id"] ??
+      ""
+  ).trim();
+
+  const companyId =
+    raw[CLAIM_COMPANY_ID] ?? raw["CompanyId"] ?? raw["companyId"] ?? null;
 
   return {
-    userId: String(raw[CLAIM_NAMEID] ?? ""),
-    email: String(raw[CLAIM_EMAIL] ?? ""),
-    role: String(raw[CLAIM_ROLE] ?? "") as UserRole,
-    companyId: raw[CLAIM_COMPANY_ID] ? String(raw[CLAIM_COMPANY_ID]) : null,
+    userId,
+    email,
+    role: normalizedRole,
+    companyId: companyId ? String(companyId).trim() : null,
     exp: raw.exp,
   };
 }

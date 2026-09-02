@@ -5,9 +5,16 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingBlock } from "@/components/Loading";
 import { Notice } from "@/components/Notice";
-import { adminApi, extractErrorMessage } from "@/lib/api";
+import { adminApi} from "@/lib/api";
 import { useToast } from "@/lib/ToastContext";
 import { ROLE_LABELS, type AdminUserResponse, type NumericRole } from "@/types";
+
+const getErrorMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object" && "message" in err) return String(err.message);
+  return "Bir hata oluştu.";
+};
 
 const roleBadgeClass: Record<NumericRole, string> = {
   1: "badge-yolcu",
@@ -31,7 +38,7 @@ export function AdminUsers() {
       const data = await adminApi.listUsers();
       setUsers(data);
     } catch (err) {
-      setError(extractErrorMessage(err));
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -128,7 +135,7 @@ export function AdminUsers() {
               setDeleting(null);
               load();
             } catch (err) {
-              notify(extractErrorMessage(err), "error");
+              notify(getErrorMessage(err), "error");
             }
           }}
         />

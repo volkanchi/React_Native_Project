@@ -2,7 +2,10 @@ import { useState, type FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { LogIn } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
-import { extractErrorMessage } from "@/lib/api";
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Giriş başarısız.";
+}
 
 export function LoginPage() {
   const { user, login } = useAuth();
@@ -24,13 +27,13 @@ export function LoginPage() {
       const decoded = await login(email, password);
       if (decoded.role !== "Firma" && decoded.role !== "Admin") {
         setError(
-          "Bu panel yalnızca Firma ve Admin hesapları içindir. Yolcu/Şoför hesapları mobil uygulamayı kullanmalıdır."
+          `Yetkisiz Rol ("${decoded.role || "Bilinmiyor"}"): Bu panel yalnızca Firma ve Admin hesapları içindir.`
         );
         return;
       }
       navigate(decoded.role === "Admin" ? "/admin" : "/company", { replace: true });
     } catch (err) {
-      setError(extractErrorMessage(err));
+      setError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }

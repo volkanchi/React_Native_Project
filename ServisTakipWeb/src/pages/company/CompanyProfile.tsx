@@ -2,9 +2,16 @@ import { useState, type FormEvent } from "react";
 import { Save } from "lucide-react";
 import { PageHeader } from "@/components/Layout";
 import { Notice } from "@/components/Notice";
-import { companyApi, extractErrorMessage } from "@/lib/api";
+import { companyApi} from "@/lib/api";
 import { useToast } from "@/lib/ToastContext";
 import type { CompanyUpdatePayload } from "@/types";
+
+const getErrorMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object" && "message" in err) return String(err.message);
+  return "Bir hata oluştu.";
+};
 
 const emptyForm: CompanyUpdatePayload = {
   companyName: "",
@@ -31,7 +38,7 @@ export function CompanyProfile() {
       await companyApi.updateProfile(form);
       notify("Firma bilgileri güncellendi.", "success");
     } catch (err) {
-      setError(extractErrorMessage(err));
+      setError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }

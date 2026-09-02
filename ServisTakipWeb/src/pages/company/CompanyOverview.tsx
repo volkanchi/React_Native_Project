@@ -5,8 +5,15 @@ import { PageHeader } from "@/components/Layout";
 import { StatCard } from "@/components/StatCard";
 import { LoadingBlock } from "@/components/Loading";
 import { Notice } from "@/components/Notice";
-import { companyApi, extractErrorMessage, routeApi, vehicleApi } from "@/lib/api";
+import { companyApi, routeApi, vehicleApi } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
+
+const getErrorMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object" && "message" in err) return String(err.message);
+  return "Bir hata oluştu.";
+};
 
 export function CompanyOverview() {
   const { user } = useAuth();
@@ -26,7 +33,7 @@ export function CompanyOverview() {
         if (!alive) return;
         setCounts({ drivers: drivers.length, vehicles: vehicles.length, routes: routes.length });
       } catch (err) {
-        if (alive) setError(extractErrorMessage(err));
+        if (alive) setError(getErrorMessage(err));
       } finally {
         if (alive) setLoading(false);
       }

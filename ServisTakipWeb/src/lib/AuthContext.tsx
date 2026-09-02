@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const decoded = decodeToken(token);
     if (!PANEL_ROLES.includes(decoded.role)) {
       throw new Error(
-        "Bu panel yalnızca Firma ve Admin hesapları içindir. Yolcu/Şoför hesapları mobil uygulamayı kullanmalıdır."
+        `Yetkisiz Rol ("${decoded.role || "Bilinmiyor"}"): Bu panel yalnızca Firma ve Admin hesapları içindir.`
       );
     }
     setStoredToken(token);

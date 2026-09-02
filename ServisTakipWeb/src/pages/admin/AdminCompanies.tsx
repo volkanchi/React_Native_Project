@@ -6,9 +6,16 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingBlock } from "@/components/Loading";
 import { Notice } from "@/components/Notice";
-import { adminApi, extractErrorMessage } from "@/lib/api";
+import { adminApi } from "@/lib/api";
 import { useToast } from "@/lib/ToastContext";
 import type { CompanyCreatePayload, CompanyResponse } from "@/types";
+
+const getErrorMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object" && "message" in err) return String(err.message);
+  return "Bir hata oluştu.";
+};
 
 const emptyForm: CompanyCreatePayload = {
   companyName: "",
@@ -35,7 +42,7 @@ export function AdminCompanies() {
       const data = await adminApi.listCompanies();
       setCompanies(data);
     } catch (err) {
-      setError(extractErrorMessage(err));
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -133,7 +140,7 @@ export function AdminCompanies() {
               setDeleting(null);
               load();
             } catch (err) {
-              notify(extractErrorMessage(err), "error");
+              notify(getErrorMessage(err), "error");
             }
           }}
         />
@@ -157,7 +164,7 @@ function CreateCompanyModal({ onClose, onCreated }: { onClose: () => void; onCre
       await adminApi.registerCompany(form);
       onCreated();
     } catch (err) {
-      setError(extractErrorMessage(err));
+      setError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }

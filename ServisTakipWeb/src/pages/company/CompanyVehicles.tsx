@@ -6,11 +6,18 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingBlock } from "@/components/Loading";
 import { Notice } from "@/components/Notice";
-import { companyApi, extractErrorMessage, vehicleApi } from "@/lib/api";
+import { companyApi, vehicleApi } from "@/lib/api";
 import { useToast } from "@/lib/ToastContext";
 import type { DriverResponse, VehicleCreatePayload, VehicleResponse } from "@/types";
 
 const emptyForm: VehicleCreatePayload = { plateNumber: "", brandAndModel: "", seatingCapacity: 16 };
+
+const getErrorMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object" && "message" in err) return String(err.message);
+  return "Bir hata oluştu.";
+};
 
 export function CompanyVehicles() {
   const { notify } = useToast();
@@ -31,7 +38,7 @@ export function CompanyVehicles() {
       setVehicles(v);
       setDrivers(d);
     } catch (err) {
-      setError(extractErrorMessage(err));
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -145,7 +152,7 @@ export function CompanyVehicles() {
               setDeleting(null);
               load();
             } catch (err) {
-              notify(extractErrorMessage(err), "error");
+              notify(getErrorMessage(err), "error");
             }
           }}
         />
@@ -169,7 +176,7 @@ function CreateVehicleModal({ onClose, onCreated }: { onClose: () => void; onCre
       await vehicleApi.create(form);
       onCreated();
     } catch (err) {
-      setError(extractErrorMessage(err));
+      setError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -255,7 +262,7 @@ function AssignDriverModal({
       await vehicleApi.assignDriver({ driverId, vehicleId: vehicle.id });
       onAssigned();
     } catch (err) {
-      setError(extractErrorMessage(err));
+      setError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }

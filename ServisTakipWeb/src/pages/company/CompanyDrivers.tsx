@@ -6,9 +6,16 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingBlock } from "@/components/Loading";
 import { Notice } from "@/components/Notice";
-import { companyApi, extractErrorMessage } from "@/lib/api";
+import { companyApi } from "@/lib/api";
 import { useToast } from "@/lib/ToastContext";
 import type { DriverCreatePayload, DriverResponse, DriverUpdatePayload } from "@/types";
+
+const getErrorMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object" && "message" in err) return String(err.message);
+  return "Bir hata oluştu.";
+};
 
 const emptyCreate: DriverCreatePayload = {
   name: "",
@@ -36,7 +43,7 @@ export function CompanyDrivers() {
       const data = await companyApi.listDrivers();
       setDrivers(data);
     } catch (err) {
-      setError(extractErrorMessage(err));
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -147,7 +154,7 @@ export function CompanyDrivers() {
               setDeleting(null);
               load();
             } catch (err) {
-              notify(extractErrorMessage(err), "error");
+              notify(getErrorMessage(err), "error");
             }
           }}
         />
@@ -171,7 +178,7 @@ function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCrea
       await companyApi.addDriver(form);
       onCreated();
     } catch (err) {
-      setError(extractErrorMessage(err));
+      setError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -257,7 +264,7 @@ function EditDriverModal({
       await companyApi.updateDriver(driver.driverId, form);
       onSaved();
     } catch (err) {
-      setError(extractErrorMessage(err));
+      setError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }

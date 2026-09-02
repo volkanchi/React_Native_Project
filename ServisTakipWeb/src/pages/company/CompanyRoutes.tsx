@@ -6,7 +6,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingBlock } from "@/components/Loading";
 import { Notice } from "@/components/Notice";
-import { companyApi, extractErrorMessage, routeApi, vehicleApi } from "@/lib/api";
+import { companyApi, routeApi, vehicleApi } from "@/lib/api";
 import { useToast } from "@/lib/ToastContext";
 import type {
   Coordinate,
@@ -16,6 +16,13 @@ import type {
   RouteUpdatePayload,
   VehicleResponse,
 } from "@/types";
+
+const getErrorMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object" && "message" in err) return String(err.message);
+  return "Bir hata oluştu.";
+};
 
 function parseCoordinates(raw: string): Coordinate[] {
   return raw
@@ -58,7 +65,7 @@ export function CompanyRoutes() {
       setVehicles(v);
       setDrivers(d);
     } catch (err) {
-      setError(extractErrorMessage(err));
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -208,7 +215,7 @@ export function CompanyRoutes() {
               setDeleting(null);
               load();
             } catch (err) {
-              notify(extractErrorMessage(err), "error");
+              notify(getErrorMessage(err), "error");
             }
           }}
         />
@@ -255,7 +262,7 @@ function RouteFormModal({
     try {
       await onSubmit({ name, vehicleId, driverId, pathCoordinates });
     } catch (err) {
-      setError(extractErrorMessage(err));
+      setError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
