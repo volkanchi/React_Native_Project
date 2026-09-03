@@ -1,10 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Feather, Ionicons } from '@expo/vector-icons';
-import { routeService } from '../services/routeService';
-import { storageService } from '../services/storageService';
-import { mapService, Coordinate } from '../services/mapService';
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Modal,
+} from "react-native";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import { Feather, Ionicons } from "@expo/vector-icons";
+import { routeService } from "../services/routeService";
+import { storageService } from "../services/storageService";
+import { mapService, Coordinate } from "../services/mapService";
 
 interface StopPreview {
   label?: string;
@@ -13,10 +21,21 @@ interface StopPreview {
 }
 
 export default function SelectStopScreen({ route, navigation }: any) {
-  const { routeCode, routeName, pathCoordinates, existingStops = [] } = route.params;
+  const {
+    routeCode,
+    routeName,
+    pathCoordinates,
+    existingStops = [],
+  } = route.params;
   const mapRef = useRef<MapView>(null);
-  const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [snapPoint, setSnapPoint] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [snapPoint, setSnapPoint] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkingCoverage, setCheckingCoverage] = useState(false);
   const [routePolyline, setRoutePolyline] = useState<Coordinate[]>([]);
@@ -31,23 +50,39 @@ export default function SelectStopScreen({ route, navigation }: any) {
     let isMounted = true;
 
     const fetchRealStreetPath = async () => {
-      if (pathCoordinates && pathCoordinates.length >= 2) {
-        setCalculatingRoute(true);
-        const realCoords = await mapService.getRoutePolyline(pathCoordinates);
-        if (isMounted) {
-          setRoutePolyline(realCoords);
-          setCalculatingRoute(false);
-          if (realCoords.length > 0) {
-           requestAnimationFrame(() => {
-            mapRef.current?.fitToCoordinates(realCoords, {
-               edgePadding: { top: 80, right: 60, bottom: 260, left: 60 },
-                animated: true,
-              });
-            });
-          }
-        }
-      } else {
+      if (!pathCoordinates || pathCoordinates.length < 2) {
         setCalculatingRoute(false);
+        return;
+      }
+      const looksAlreadyComputed = pathCoordinates.length > 20;
+
+      if (looksAlreadyComputed) {
+        setRoutePolyline(pathCoordinates);
+        setCalculatingRoute(false);
+        if (pathCoordinates.length > 0) {
+          requestAnimationFrame(() => {
+            mapRef.current?.fitToCoordinates(pathCoordinates, {
+              edgePadding: { top: 80, right: 60, bottom: 260, left: 60 },
+              animated: true,
+            });
+          });
+        }
+        return;
+      }
+
+      setCalculatingRoute(true);
+      const realCoords = await mapService.getRoutePolyline(pathCoordinates);
+      if (isMounted) {
+        setRoutePolyline(realCoords);
+        setCalculatingRoute(false);
+        if (realCoords.length > 0) {
+          requestAnimationFrame(() => {
+            mapRef.current?.fitToCoordinates(realCoords, {
+              edgePadding: { top: 80, right: 60, bottom: 260, left: 60 },
+              animated: true,
+            });
+          });
+        }
       }
     };
 
@@ -58,15 +93,24 @@ export default function SelectStopScreen({ route, navigation }: any) {
     };
   }, [pathCoordinates]);
 
-  const initialRegion = pathCoordinates && pathCoordinates.length > 0
-    ? {
-        latitude: pathCoordinates[0].latitude,
-        longitude: pathCoordinates[0].longitude,
-        latitudeDelta: 0.08,
-        longitudeDelta: 0.08,
-      }
-    : { latitude: 41.0082, longitude: 28.9784, latitudeDelta: 0.08, longitudeDelta: 0.08 };
-  const handleMapPress = async (coord: { latitude: number; longitude: number }) => {
+  const initialRegion =
+    pathCoordinates && pathCoordinates.length > 0
+      ? {
+          latitude: pathCoordinates[0].latitude,
+          longitude: pathCoordinates[0].longitude,
+          latitudeDelta: 0.08,
+          longitudeDelta: 0.08,
+        }
+      : {
+          latitude: 41.0082,
+          longitude: 28.9784,
+          latitudeDelta: 0.08,
+          longitudeDelta: 0.08,
+        };
+  const handleMapPress = async (coord: {
+    latitude: number;
+    longitude: number;
+  }) => {
     setCheckingCoverage(true);
     const token = await storageService.getToken();
     if (!token) {
@@ -74,14 +118,18 @@ export default function SelectStopScreen({ route, navigation }: any) {
       return;
     }
 
-    const res = await routeService.validateStopCoverage(routeCode, coord, token);
+    const res = await routeService.validateStopCoverage(
+      routeCode,
+      coord,
+      token,
+    );
     setCheckingCoverage(false);
 
     if (!res.success) {
       Alert.alert(
-        'Güzergah Dışında',
+        "Güzergah Dışında",
         res.message ||
-          'Seçtiğiniz nokta bu servisin güzergah alanının dışındadır. Lütfen ana güzergaha en fazla 1km mesafede bir nokta seçiniz.',
+          "Seçtiğiniz nokta bu servisin güzergah alanının dışındadır. Lütfen ana güzergaha en fazla 1km mesafede bir nokta seçiniz.",
       );
       return;
     }
@@ -97,7 +145,10 @@ export default function SelectStopScreen({ route, navigation }: any) {
     setPendingSelection({
       location: coord,
       snap: coverage.snapCoordinate
-        ? { latitude: coverage.snapCoordinate.latitude, longitude: coverage.snapCoordinate.longitude }
+        ? {
+            latitude: coverage.snapCoordinate.latitude,
+            longitude: coverage.snapCoordinate.longitude,
+          }
         : null,
       walkingDistanceMeters: coverage.walkingDistanceMeters,
     });
@@ -111,26 +162,29 @@ export default function SelectStopScreen({ route, navigation }: any) {
     setPendingSelection(null);
   };
   // Seçilen nokta + (varsa) izdüşüm noktası + rota polyline'ının tamamını
-   // aynı anda kapsayacak şekilde haritayı yeniden çerçeveler; böylece nokta
-   // ekranın kenarında/dışında kalıp "çizgiye yakın mı değil mi" belirsizliği
-   // oluşmaz.
-   const fitToSelection = (
-     point: { latitude: number; longitude: number },
-     snap: { latitude: number; longitude: number } | null,
-   ) => {
-     const coordsToFit = [point, ...(snap ? [snap] : []), ...routePolyline];
-     if (coordsToFit.length === 0) return;
-     requestAnimationFrame(() => {
-       mapRef.current?.fitToCoordinates(coordsToFit, {
-         edgePadding: { top: 80, right: 60, bottom: 260, left: 60 },
-         animated: true,
-       });
-     });
-   };
-    
+  // aynı anda kapsayacak şekilde haritayı yeniden çerçeveler; böylece nokta
+  // ekranın kenarında/dışında kalıp "çizgiye yakın mı değil mi" belirsizliği
+  // oluşmaz.
+  const fitToSelection = (
+    point: { latitude: number; longitude: number },
+    snap: { latitude: number; longitude: number } | null,
+  ) => {
+    const coordsToFit = [point, ...(snap ? [snap] : []), ...routePolyline];
+    if (coordsToFit.length === 0) return;
+    requestAnimationFrame(() => {
+      mapRef.current?.fitToCoordinates(coordsToFit, {
+        edgePadding: { top: 80, right: 60, bottom: 260, left: 60 },
+        animated: true,
+      });
+    });
+  };
+
   const handleJoin = async () => {
     if (!selectedLocation) {
-      Alert.alert('Uyarı', 'Lütfen haritaya dokunarak veya mevcut bir durağı seçerek bineceğiniz yeri belirleyin.');
+      Alert.alert(
+        "Uyarı",
+        "Lütfen haritaya dokunarak veya mevcut bir durağı seçerek bineceğiniz yeri belirleyin.",
+      );
       return;
     }
     setLoading(true);
@@ -141,13 +195,13 @@ export default function SelectStopScreen({ route, navigation }: any) {
           routeCode: routeCode,
           location: selectedLocation,
         },
-        token
+        token,
       );
       if (res.success) {
-        Alert.alert('Başarılı', 'Servis güzergahına başarıyla dahil oldunuz!');
-        navigation.navigate('PassengerMain');
+        Alert.alert("Başarılı", "Servis güzergahına başarıyla dahil oldunuz!");
+        navigation.navigate("PassengerMain");
       } else {
-        Alert.alert('Hata', res.message || 'Katılım başarısız.');
+        Alert.alert("Hata", res.message || "Katılım başarısız.");
       }
     }
     setLoading(false);
@@ -208,7 +262,10 @@ export default function SelectStopScreen({ route, navigation }: any) {
             title={stop.label || `Mevcut Durak ${idx + 1}`}
             description="Bu noktadan binmek için dokunun"
             onPress={() => {
-              setSelectedLocation({ latitude: stop.latitude, longitude: stop.longitude });
+              setSelectedLocation({
+                latitude: stop.latitude,
+                longitude: stop.longitude,
+              });
               setSnapPoint(null);
             }}
           />
@@ -238,7 +295,9 @@ export default function SelectStopScreen({ route, navigation }: any) {
       {checkingCoverage && (
         <View style={styles.loadingBadge}>
           <ActivityIndicator size="small" color="#2563EB" />
-          <Text style={styles.loadingText}>Kapsama alanı kontrol ediliyor...</Text>
+          <Text style={styles.loadingText}>
+            Kapsama alanı kontrol ediliyor...
+          </Text>
         </View>
       )}
 
@@ -246,23 +305,30 @@ export default function SelectStopScreen({ route, navigation }: any) {
       {calculatingRoute && (
         <View style={styles.loadingBadge}>
           <ActivityIndicator size="small" color="#2563EB" />
-          <Text style={styles.loadingText}>Güzergah haritası yükleniyor...</Text>
+          <Text style={styles.loadingText}>
+            Güzergah haritası yükleniyor...
+          </Text>
         </View>
       )}
 
       {/* Geri Dön Butonu */}
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => navigation.goBack()}
+      >
         <Feather name="arrow-left" size={24} color="#111827" />
       </TouchableOpacity>
 
       {/* Bilgilendirici Durak Rozeti (Legend) */}
       <View style={styles.legendContainer}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#3B82F6' }]} />
-          <Text style={styles.legendText}>Mevcut Duraklar ({existingStops.length})</Text>
+          <View style={[styles.legendDot, { backgroundColor: "#3B82F6" }]} />
+          <Text style={styles.legendText}>
+            Mevcut Duraklar ({existingStops.length})
+          </Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
+          <View style={[styles.legendDot, { backgroundColor: "#10B981" }]} />
           <Text style={styles.legendText}>Benim Biniş Noktam</Text>
         </View>
       </View>
@@ -271,21 +337,33 @@ export default function SelectStopScreen({ route, navigation }: any) {
       <View style={styles.bottomSheet}>
         <Text style={styles.title}>{routeName}</Text>
         <Text style={styles.subtitle}>
-          Haritada boş bir yere dokunabilir veya mavi pinlerden birini seçerek ortak duraktan binebilirsiniz.
+          Haritada boş bir yere dokunabilir veya mavi pinlerden birini seçerek
+          ortak duraktan binebilirsiniz.
         </Text>
 
         <TouchableOpacity
-          style={[styles.confirmButton, (!selectedLocation || loading) && { opacity: 0.5 }]}
+          style={[
+            styles.confirmButton,
+            (!selectedLocation || loading) && { opacity: 0.5 },
+          ]}
           onPress={handleJoin}
           disabled={!selectedLocation || loading}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+            >
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={20}
+                color="#fff"
+              />
               <Text style={styles.confirmButtonText}>
-                {selectedLocation ? 'Bu Duraktan Bineceğim' : 'Lütfen Bir Nokta Seçin'}
+                {selectedLocation
+                  ? "Bu Duraktan Bineceğim"
+                  : "Lütfen Bir Nokta Seçin"}
               </Text>
             </View>
           )}
@@ -294,18 +372,30 @@ export default function SelectStopScreen({ route, navigation }: any) {
       <Modal visible={!!pendingSelection} transparent animationType="fade">
         <View style={modalStyles.overlay}>
           <View style={modalStyles.card}>
-            <Ionicons name="walk-outline" size={28} color="#F59E0B" style={{ marginBottom: 8 }} />
+            <Ionicons
+              name="walk-outline"
+              size={28}
+              color="#F59E0B"
+              style={{ marginBottom: 8 }}
+            />
             <Text style={modalStyles.title}>Yürüme Mesafesi Onayı</Text>
             <Text style={modalStyles.body}>
-              Biniş noktanız servis ana güzergahına {Math.round(pendingSelection?.walkingDistanceMeters || 0)}{' '}
-              metre mesafededir. Servis ana caddeden geçecektir; lütfen biniş saatinde caddedeki durak
-              noktasında bulununuz.
+              Biniş noktanız servis ana güzergahına{" "}
+              {Math.round(pendingSelection?.walkingDistanceMeters || 0)} metre
+              mesafededir. Servis ana caddeden geçecektir; lütfen biniş saatinde
+              caddedeki durak noktasında bulununuz.
             </Text>
             <View style={modalStyles.actions}>
-              <TouchableOpacity style={modalStyles.cancelBtn} onPress={() => setPendingSelection(null)}>
+              <TouchableOpacity
+                style={modalStyles.cancelBtn}
+                onPress={() => setPendingSelection(null)}
+              >
                 <Text style={modalStyles.cancelText}>Vazgeç</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={modalStyles.confirmBtn} onPress={handleConfirmWalkingNotice}>
+              <TouchableOpacity
+                style={modalStyles.confirmBtn}
+                onPress={handleConfirmWalkingNotice}
+              >
                 <Text style={modalStyles.confirmText}>Onaylıyorum</Text>
               </TouchableOpacity>
             </View>
@@ -317,89 +407,122 @@ export default function SelectStopScreen({ route, navigation }: any) {
 }
 
 const modalStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(15,23,42,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  card: { backgroundColor: '#fff', borderRadius: 20, padding: 22, width: '100%' },
-  title: { fontSize: 17, fontWeight: '800', color: '#0F172A', marginBottom: 8 },
-  body: { fontSize: 13, color: '#475569', lineHeight: 19, marginBottom: 18 },
-  actions: { flexDirection: 'row', gap: 10 },
-  cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: '#F1F5F9', alignItems: 'center' },
-  cancelText: { color: '#475569', fontWeight: '700' },
-  confirmBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: '#F59E0B', alignItems: 'center' },
-  confirmText: { color: '#fff', fontWeight: '800' },
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(15,23,42,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 22,
+    width: "100%",
+  },
+  title: { fontSize: 17, fontWeight: "800", color: "#0F172A", marginBottom: 8 },
+  body: { fontSize: 13, color: "#475569", lineHeight: 19, marginBottom: 18 },
+  actions: { flexDirection: "row", gap: 10 },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+  },
+  cancelText: { color: "#475569", fontWeight: "700" },
+  confirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: "#F59E0B",
+    alignItems: "center",
+  },
+  confirmText: { color: "#fff", fontWeight: "800" },
 });
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   backButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 50,
     left: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 10,
     borderRadius: 20,
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 4,
     zIndex: 10,
   },
   loadingBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: 54,
-    alignSelf: 'center',
-    backgroundColor: '#fff',
+    alignSelf: "center",
+    backgroundColor: "#fff",
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 4,
     zIndex: 10,
   },
-  loadingText: { fontSize: 12, fontWeight: '600', color: '#1E4ED8' },
+  loadingText: { fontSize: 12, fontWeight: "600", color: "#1E4ED8" },
   legendContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 105,
     left: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
     gap: 6,
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendText: { fontSize: 11, fontWeight: '700', color: '#334155' },
+  legendText: { fontSize: 11, fontWeight: "700", color: "#334155" },
   bottomSheet: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
     elevation: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 10,
   },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#111827', marginBottom: 6 },
-  subtitle: { fontSize: 13, color: '#6B7280', marginBottom: 20, lineHeight: 18 },
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#111827",
+    marginBottom: 6,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginBottom: 20,
+    lineHeight: 18,
+  },
   confirmButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: "#10B981",
     padding: 16,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  confirmButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  confirmButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
 });

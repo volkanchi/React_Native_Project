@@ -24,25 +24,45 @@ namespace ServisTakipApi.Services
             _httpClient = httpClient;
             _configuration = configuration;
         }
+        private const int MaxOrsWaypoints = 70;
+
+       // ORS'in tek istekte kabul ettiği maksimum waypoint sayısını aşan
+       // (örn. daha önce ORS'ten dönmüş, yüzlerce noktalı bir polyline'ın
+        // tekrar 'coordinates' olarak yollandığı) durumlarda, ilk/son nokta
+        // korunarak eşit aralıklarla seyreltme yapar.
+        private static List<CoordinateDto> DownsampleIfNeeded(List<CoordinateDto> points)
+        {
+            if (points.Count <= MaxOrsWaypoints) return points;
+
+            var step = (double)(points.Count - 1) / (MaxOrsWaypoints - 1);
+            var sampled = new List<CoordinateDto>(MaxOrsWaypoints);
+            for (int i = 0; i < MaxOrsWaypoints; i++)
+            {
+                sampled.Add(points[(int)Math.Round(i * step)]);
+            }
+                        return sampled;
+        }
 
         public async Task<RoutePolylineResult> GetRoutePolylineAsync(List<CoordinateDto> stops)
-        {
-            try
-            {
-                var apiKey = _configuration["ORS_API_KEY"];
-                if (string.IsNullOrWhiteSpace(apiKey))
-                {
-                    const string msg = "ORS_API_KEY appsettings.json içinde tanımlı değil.";
-                    Console.WriteLine($"❌ [MapService] {msg}");
-                    return new RoutePolylineResult { ErrorDetail = msg };
-                }
-
-                if (stops == null || stops.Count < 2)
-                {
-                    const string msg = "Rota çizimi için en az 2 durak noktası gereklidir.";
-                    Console.WriteLine($"⚠️ [MapService] {msg}");
-                    return new RoutePolylineResult { ErrorDetail = msg };
-                }
+         {
+             try
+             {
+                 var apiKey = _configuration["ORS_API_KEY"];
+                 if (string.IsNullOrWhiteSpace(apiKey))
+                 {
+                     const string msg = "ORS_API_KEY appsettings.json içinde tanımlı değil.";
+                     Console.WriteLine($"❌ [MapService] {msg}");
+                     return new RoutePolylineResult { ErrorDetail = msg };
+                 }
+ 
+                 if (stops == null || stops.Count < 2)
+                 {
+                     const string msg = "Rota çizimi için en az 2 durak noktası gereklidir.";
+                     Console.WriteLine($"⚠️ [MapService] {msg}");
+                     return new RoutePolylineResult { ErrorDetail = msg };
+                 }
+ 
+                stops = DownsampleIfNeeded(stops);
 
                 const string url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson";
 
