@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Feather, Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,7 @@ interface StopPreview {
 
 export default function SelectStopScreen({ route, navigation }: any) {
   const { routeCode, routeName, pathCoordinates, existingStops = [] } = route.params;
+  const mapRef = useRef<MapView>(null);
   const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [snapPoint, setSnapPoint] = useState<{ latitude: number; longitude: number } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -36,6 +37,14 @@ export default function SelectStopScreen({ route, navigation }: any) {
         if (isMounted) {
           setRoutePolyline(realCoords);
           setCalculatingRoute(false);
+          if (realCoords.length > 0) {
+           requestAnimationFrame(() => {
+            mapRef.current?.fitToCoordinates(realCoords, {
+               edgePadding: { top: 80, right: 60, bottom: 260, left: 60 },
+                animated: true,
+              });
+            });
+          }
         }
       } else {
         setCalculatingRoute(false);
@@ -79,9 +88,9 @@ export default function SelectStopScreen({ route, navigation }: any) {
 
     const coverage = res.data;
     if (!coverage.requiresWalkingNotice) {
-      // RoutePath tanımlı değil / kontrol atlandı: direkt kabul et
       setSelectedLocation(coord);
       setSnapPoint(null);
+      fitToSelection(coord, null);
       return;
     }
 
@@ -98,8 +107,26 @@ export default function SelectStopScreen({ route, navigation }: any) {
     if (!pendingSelection) return;
     setSelectedLocation(pendingSelection.location);
     setSnapPoint(pendingSelection.snap);
+    fitToSelection(pendingSelection.location, pendingSelection.snap);
     setPendingSelection(null);
   };
+  // Seçilen nokta + (varsa) izdüşüm noktası + rota polyline'ının tamamını
+   // aynı anda kapsayacak şekilde haritayı yeniden çerçeveler; böylece nokta
+   // ekranın kenarında/dışında kalıp "çizgiye yakın mı değil mi" belirsizliği
+   // oluşmaz.
+   const fitToSelection = (
+     point: { latitude: number; longitude: number },
+     snap: { latitude: number; longitude: number } | null,
+   ) => {
+     const coordsToFit = [point, ...(snap ? [snap] : []), ...routePolyline];
+     if (coordsToFit.length === 0) return;
+     requestAnimationFrame(() => {
+       mapRef.current?.fitToCoordinates(coordsToFit, {
+         edgePadding: { top: 80, right: 60, bottom: 260, left: 60 },
+         animated: true,
+       });
+     });
+   };
     
   const handleJoin = async () => {
     if (!selectedLocation) {
@@ -129,6 +156,7 @@ export default function SelectStopScreen({ route, navigation }: any) {
   return (
     <View style={styles.container}>
       <MapView
+        ref={mapRef}
         style={StyleSheet.absoluteFillObject}
         provider={PROVIDER_GOOGLE}
         initialRegion={initialRegion}
