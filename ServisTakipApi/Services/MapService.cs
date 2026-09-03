@@ -22,8 +22,15 @@ namespace ServisTakipApi.Services
 
         public async Task<List<CoordinateDto>> GetRoutePolylineAsync(List<CoordinateDto> stops)
         {
-            if (string.IsNullOrWhiteSpace(_apiKey) || stops == null || stops.Count < 2)
+            if (string.IsNullOrWhiteSpace(_apiKey))
             {
+                Console.WriteLine("❌ HATA: appsettings.json dosyasında 'ORS_API_KEY' bulunamadı!");
+                return new List<CoordinateDto>();
+            }
+
+            if (stops == null || stops.Count < 2)
+            {
+                Console.WriteLine("⚠️ UYARI: Rota çizimi için en az 2 durak gereklidir.");
                 return new List<CoordinateDto>();
             }
 
@@ -31,26 +38,32 @@ namespace ServisTakipApi.Services
 
             // ORS sıralaması: [Boylam (Lng), Enlem (Lat)]
             var coordinates = stops.Select(s => new[] { s.Longitude, s.Latitude }).ToArray();
+            // Tüm noktaları en yakın yola zorla bağlamak için -1 verilir
+            var radiuses = stops.Select(_ => -1).ToArray();
+
+            var requestBody = new
+            {
+                coordinates = coordinates,
+                radiuses = radiuses
+            };
 
             using var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Add("Authorization", _apiKey);
             request.Headers.Add("Accept", "application/json, application/geo+json");
-            request.Content = JsonContent.Create(new { coordinates });
+            request.Content = JsonContent.Create(requestBody);
 
             var response = await _httpClient.SendAsync(request);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
             if (!response.IsSuccessStatusCode)
             {
+                Console.WriteLine($"❌ ORS API Hatası! Status: {response.StatusCode}, Detay: {responseContent}");
                 return new List<CoordinateDto>();
             }
 
-            using var stream = await response.Content.ReadAsStreamAsync();
-            using var doc = await JsonDocument.ParseAsync(stream);
-
+            using var doc = JsonDocument.Parse(responseContent);
             var features = doc.RootElement.GetProperty("features");
-            if (features.GetArrayLength() == 0)
-            {
-                return new List<CoordinateDto>();
-            }
+            if (features.GetArrayLength() == 0) return new List<CoordinateDto>();
 
             var polylineCoords = features[0]
                 .GetProperty("geometry")
@@ -66,6 +79,7 @@ namespace ServisTakipApi.Services
                 });
             }
 
+            Console.WriteLine($"✅ Rota başarıyla hesaplandı. Toplam nokta sayısı: {result.Count}");
             return result;
         }
     }

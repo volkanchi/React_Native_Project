@@ -8,7 +8,10 @@ export interface Coordinate {
 
 export const mapService = {
   getRoutePolyline: async (stops: Coordinate[]): Promise<Coordinate[]> => {
-    if (!stops || stops.length < 2) return [];
+    if (!stops || stops.length < 2) {
+      console.warn('⚠️ Rota çizimi için en az 2 nokta gerekli.');
+      return [];
+    }
 
     try {
       const token = await storageService.getToken();
@@ -21,12 +24,22 @@ export const mapService = {
         body: JSON.stringify({ stops }),
       });
 
-      if (!response.ok) return [];
+      const responseText = await response.text();
 
-      const result = await response.json();
-      return result.success && Array.isArray(result.data) ? result.data : [];
+      if (!response.ok) {
+        console.error(`❌ Backend Rota Hatası [Status ${response.status}]:`, responseText);
+        return [];
+      }
+
+      const result = JSON.parse(responseText);
+      if (result.success && Array.isArray(result.data)) {
+        console.log(`🗺️ Polyline koordinatları alındı: ${result.data.length} nokta`);
+        return result.data;
+      }
+
+      return [];
     } catch (error) {
-      console.error('Polyline getirme hatası:', error);
+      console.error('❌ Polyline istek atılırken ağ hatası:', error);
       return [];
     }
   },

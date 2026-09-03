@@ -63,7 +63,9 @@ const haversineDistance = (
   return 2 * R * Math.asin(Math.sqrt(h));
 };
 
-const orderStopsByProximity = <T extends { latitude: number; longitude: number }>(
+const orderStopsByProximity = <
+  T extends { latitude: number; longitude: number },
+>(
   origin: { latitude: number; longitude: number },
   stops: T[],
 ): T[] => {
@@ -98,12 +100,10 @@ export default function DriverMainScreen({
   selectedRouteId,
   onRequireRouteSelection,
 }: DriverMainScreenProps) {
-  // Entegre Rota Seçim Durumları
   const [availableRoutes, setAvailableRoutes] = useState<any[]>([]);
   const [loadingRoutes, setLoadingRoutes] = useState(true);
   const [showRouteSelect, setShowRouteSelect] = useState(false);
 
-  // Sefer ve Harita Durumları
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [tripActive, setTripActive] = useState(false);
   const [currentStopIndex, setCurrentStopIndex] = useState(0);
@@ -111,10 +111,17 @@ export default function DriverMainScreen({
   const [routeData, setRouteData] = useState<RouteState | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
 
-  const driverCoordRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const driverCoordRef = useRef<{ latitude: number; longitude: number } | null>(
+    null,
+  );
   const routeRequestIdRef = useRef(0);
-  const [driverCoord, setDriverCoord] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [pathTraveled, setPathTraveled] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [driverCoord, setDriverCoord] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [pathTraveled, setPathTraveled] = useState<
+    { latitude: number; longitude: number }[]
+  >([]);
   const [usingSimulatedLocation, setUsingSimulatedLocation] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [routeCoordinates, setRouteCoordinates] = useState<Coordinate[]>([]);
@@ -130,7 +137,6 @@ export default function DriverMainScreen({
     setSheetExpanded((expanded) => !expanded);
   };
 
-  // 1. Ekran açılışında rotaları getir ve seçim ihtiyacını belirle
   useEffect(() => {
     initDriverRoutes(selectedRouteId);
   }, [selectedRouteId]);
@@ -153,24 +159,24 @@ export default function DriverMainScreen({
     if (res.success && Array.isArray(res.data)) {
       setAvailableRoutes(res.data);
       if (res.data.length === 1) {
-        // Tek servis varsa doğrudan haritayı yükle
         await loadRouteDetail(res.data[0].routeId, token);
         setShowRouteSelect(false);
       } else if (res.data.length > 1) {
-        // Birden çok servis varsa seçim ekranını göster
         setShowRouteSelect(true);
         onRequireRouteSelection?.();
       } else {
         setRouteData(null);
       }
     } else {
-      // Liste servisi yanıt vermezse varsayılan rotayı dene
       await loadRouteDetail(undefined, token);
     }
     setLoadingRoutes(false);
   };
 
-  const loadRouteDetail = async (routeIdParam?: string, tokenParam?: string) => {
+  const loadRouteDetail = async (
+    routeIdParam?: string,
+    tokenParam?: string,
+  ) => {
     const token = tokenParam || (await storageService.getToken());
     if (!token) return;
 
@@ -206,10 +212,12 @@ export default function DriverMainScreen({
     setLoadingRoutes(false);
   };
 
-  // Zamanlayıcı
   useEffect(() => {
     if (tripActive) {
-      timerIntervalRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+      timerIntervalRef.current = setInterval(
+        () => setElapsedSeconds((s) => s + 1),
+        1000,
+      );
     } else if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
     }
@@ -256,10 +264,15 @@ export default function DriverMainScreen({
     const routeStops = routeData?.stops ?? [];
     if (routeStops.length === 0) return;
     setDriverCoord((prev) => {
-      const target = routeStops[Math.min(currentStopIndex, routeStops.length - 1)];
-      const base = prev ?? { latitude: target.latitude, longitude: target.longitude };
+      const target =
+        routeStops[Math.min(currentStopIndex, routeStops.length - 1)];
+      const base = prev ?? {
+        latitude: target.latitude,
+        longitude: target.longitude,
+      };
       const nextLat = base.latitude + (target.latitude - base.latitude) * 0.25;
-      const nextLng = base.longitude + (target.longitude - base.longitude) * 0.25;
+      const nextLng =
+        base.longitude + (target.longitude - base.longitude) * 0.25;
       handleLocationUpdate(nextLat, nextLng, 8.5, 0);
       return { latitude: nextLat, longitude: nextLng };
     });
@@ -322,9 +335,13 @@ export default function DriverMainScreen({
 
       subscribeToPassengerActivity(
         (passengerId) =>
-          setActivePassengers((prev) => [...new Set([...prev, passengerId.toLowerCase()])]),
+          setActivePassengers((prev) => [
+            ...new Set([...prev, passengerId.toLowerCase()]),
+          ]),
         (passengerId) =>
-          setActivePassengers((prev) => prev.filter((id) => id !== passengerId.toLowerCase())),
+          setActivePassengers((prev) =>
+            prev.filter((id) => id !== passengerId.toLowerCase()),
+          ),
       );
 
       setTripActive(true);
@@ -342,10 +359,14 @@ export default function DriverMainScreen({
   };
 
   const confirmEndTrip = () => {
-    Alert.alert("Seferi Bitir", "Bu seferi sonlandırmak istediğinize emin misiniz?", [
-      { text: "Vazgeç", style: "cancel" },
-      { text: "Seferi Bitir", style: "destructive", onPress: handleEndTrip },
-    ]);
+    Alert.alert(
+      "Seferi Bitir",
+      "Bu seferi sonlandırmak istediğinize emin misiniz?",
+      [
+        { text: "Vazgeç", style: "cancel" },
+        { text: "Seferi Bitir", style: "destructive", onPress: handleEndTrip },
+      ],
+    );
   };
 
   const handleEndTrip = async () => {
@@ -369,73 +390,92 @@ export default function DriverMainScreen({
     }
     if (index !== safeStopIndex || activeStops.length === 0) return;
     if (index === activeStops.length - 1) {
-      Alert.alert("Son Durak", "Son durağa ulaştınız. Seferi bitirmek ister misiniz?", [
-        { text: "Hayır", style: "cancel" },
-        {
-          text: "Seferi Bitir",
-          onPress: () => {
-            setCurrentStopIndex((i) => i + 1);
-            handleEndTrip();
+      Alert.alert(
+        "Son Durak",
+        "Son durağa ulaştınız. Seferi bitirmek ister misiniz?",
+        [
+          { text: "Hayır", style: "cancel" },
+          {
+            text: "Seferi Bitir",
+            onPress: () => {
+              setCurrentStopIndex((i) => i + 1);
+              handleEndTrip();
+            },
           },
-        },
-      ]);
+        ],
+      );
       return;
     }
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setCurrentStopIndex((i) => i + 1);
   };
 
-  // Sonsuz döngüyü önleyen güvenli memoize durak listesi
+  // Son durak (şirket/varış noktası) korunarak aktif yolcular yakına göre sıralanır
   const activeStops = useMemo(() => {
     const stops = routeData?.stops;
-    if (!stops || stops.length === 0 || activePassengers.length === 0) {
-      return EMPTY_STOPS;
+    if (!stops || stops.length === 0) return EMPTY_STOPS;
+
+    const lastStop = stops[stops.length - 1];
+    const intermediateStops = stops
+      .slice(0, -1)
+      .filter((s) =>
+        activePassengers.includes(s.passengerId?.toLowerCase() || ""),
+      );
+
+    const origin = driverCoord ?? {
+      latitude: stops[0].latitude,
+      longitude: stops[0].longitude,
+    };
+
+    const orderedIntermediate = orderStopsByProximity(
+      origin,
+      intermediateStops,
+    );
+    return stops.length === 1 ? stops : [...orderedIntermediate, lastStop];
+  }, [routeData?.stops, activePassengers, driverCoord]);
+
+  const safeStopIndex = Math.min(
+    currentStopIndex,
+    Math.max(activeStops.length - 1, 0),
+  );
+
+  // Şoför konumu değiştikçe veya yeni yolcu odaya girdikçe polyline yeniden çizilir
+  useEffect(() => {
+    if (activeStops.length === 0) {
+      setRouteCoordinates((prev) => (prev.length > 0 ? [] : prev));
+      return;
     }
 
-    const filtered = stops.filter((s) =>
-      activePassengers.includes(s.passengerId.toLowerCase()),
-    );
-
-    if (filtered.length === 0) return EMPTY_STOPS;
-
-    const origin =
-      driverCoordRef.current ?? {
-        latitude: stops[0].latitude,
-        longitude: stops[0].longitude,
-      };
-
-    return orderStopsByProximity(origin, filtered);
-  }, [routeData?.stops, activePassengers]);
-
-  const safeStopIndex = Math.min(currentStopIndex, Math.max(activeStops.length - 1, 0));
-
-  // Döngü kilidini kıran korumalı polyline useEffect
-  useEffect(() => {
     const remainingStops = activeStops.slice(safeStopIndex);
     if (remainingStops.length === 0) {
       setRouteCoordinates((prev) => (prev.length > 0 ? [] : prev));
       return;
     }
 
-    const origin = driverCoordRef.current ?? {
-      latitude: remainingStops[0].latitude,
-      longitude: remainingStops[0].longitude,
-    };
+    const origin = driverCoord
+      ? { latitude: driverCoord.latitude, longitude: driverCoord.longitude }
+      : {
+          latitude: remainingStops[0].latitude,
+          longitude: remainingStops[0].longitude,
+        };
+
+    const rawStops = driverCoord ? remainingStops : remainingStops.slice(1);
 
     const dynamicStops: Coordinate[] = [
       origin,
-      ...remainingStops.map((s) => ({
+      ...rawStops.map((s) => ({
         latitude: s.latitude,
         longitude: s.longitude,
       })),
     ];
 
-    const requestId = ++routeRequestIdRef.current;
-    mapService.getRoutePolyline(dynamicStops).then((coords) => {
-      if (requestId === routeRequestIdRef.current) {
-        setRouteCoordinates(coords);
-      }
-    });
+    if (dynamicStops.length >= 2) {
+      mapService.getRoutePolyline(dynamicStops).then((coords) => {
+        if (coords && coords.length > 0) {
+          setRouteCoordinates(coords);
+        }
+      });
+    }
   }, [activeStops, safeStopIndex]);
 
   const occupancy = Math.min(
@@ -445,12 +485,12 @@ export default function DriverMainScreen({
   const occupancyPct = routeData?.capacity ? occupancy / routeData.capacity : 0;
   const nextStop = activeStops[safeStopIndex];
   const mapCenter = routeData?.stops?.[0]
-    ? { latitude: routeData.stops[0].latitude, longitude: routeData.stops[0].longitude }
+    ? {
+        latitude: routeData.stops[0].latitude,
+        longitude: routeData.stops[0].longitude,
+      }
     : { latitude: 41.0082, longitude: 28.9784 };
 
-  // =========================================================================
-  // GÖRÜNÜM 1: ENTEGRE SERVİS SEÇİM EKRANI (Birden fazla rota veya seçim anı)
-  // =========================================================================
   if (showRouteSelect) {
     return (
       <View style={selectStyles.container}>
@@ -468,18 +508,27 @@ export default function DriverMainScreen({
                 <Feather name="x" size={20} color="#111827" />
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={selectStyles.iconButton} onPress={onLogout}>
+            <TouchableOpacity
+              style={selectStyles.iconButton}
+              onPress={onLogout}
+            >
               <Feather name="log-out" size={20} color="#ef4444" />
             </TouchableOpacity>
           </View>
         </View>
 
         {loadingRoutes ? (
-          <ActivityIndicator size="large" color="#2563EB" style={{ marginTop: 100 }} />
+          <ActivityIndicator
+            size="large"
+            color="#2563EB"
+            style={{ marginTop: 100 }}
+          />
         ) : availableRoutes.length === 0 ? (
           <View style={selectStyles.emptyBox}>
             <Feather name="info" size={24} color="#9CA3AF" />
-            <Text style={selectStyles.emptyText}>Size atanmış bir servis bulunamadı.</Text>
+            <Text style={selectStyles.emptyText}>
+              Size atanmış bir servis bulunamadı.
+            </Text>
           </View>
         ) : (
           <ScrollView style={selectStyles.list}>
@@ -491,7 +540,9 @@ export default function DriverMainScreen({
               >
                 <View style={{ flex: 1 }}>
                   <Text style={selectStyles.routeName}>{route.name}</Text>
-                  <Text style={selectStyles.routePlate}>Plaka: {route.plate}</Text>
+                  <Text style={selectStyles.routePlate}>
+                    Plaka: {route.plate}
+                  </Text>
                 </View>
                 <Feather name="chevron-right" size={20} color="#2563EB" />
               </TouchableOpacity>
@@ -502,9 +553,6 @@ export default function DriverMainScreen({
     );
   }
 
-  // =========================================================================
-  // GÖRÜNÜM 2: ŞOFÖR CANLI HARİTA VE SEFER KONTROL EKRANI
-  // =========================================================================
   return (
     <View style={styles.container}>
       <MapView
@@ -522,10 +570,11 @@ export default function DriverMainScreen({
       >
         {isMapReady && routeCoordinates.length > 1 && (
           <Polyline
-            key="active-route-line"
+            key={`route-polyline-${routeCoordinates.length}`}
             coordinates={routeCoordinates}
             strokeColor="#1E4ED8"
-            strokeWidth={4}
+            strokeWidth={5}
+            zIndex={999}
             lineJoin="round"
           />
         )}
@@ -542,7 +591,10 @@ export default function DriverMainScreen({
           activeStops.map((stop, i) => (
             <Marker
               key={`driver-stop-${stop.id}`}
-              coordinate={{ latitude: stop.latitude, longitude: stop.longitude }}
+              coordinate={{
+                latitude: stop.latitude,
+                longitude: stop.longitude,
+              }}
               title={stop.label}
               description={stop.time}
               pinColor={i <= safeStopIndex ? "#94A3B8" : "#F59E0B"}
@@ -560,7 +612,6 @@ export default function DriverMainScreen({
         )}
       </MapView>
 
-      {/* Üst Bar */}
       <View style={styles.topBar}>
         <TouchableOpacity
           style={styles.brandChip}
@@ -572,9 +623,16 @@ export default function DriverMainScreen({
           disabled={tripActive}
         >
           <Ionicons name="bus-outline" size={18} color="#1D4ED8" />
-          <Text style={styles.brandText}>{routeData?.name || "Rota bekleniyor"}</Text>
+          <Text style={styles.brandText}>
+            {routeData?.name || "Rota bekleniyor"}
+          </Text>
           {availableRoutes.length > 1 && !tripActive && (
-            <Feather name="chevron-down" size={16} color="#1D4ED8" style={{ marginLeft: 4 }} />
+            <Feather
+              name="chevron-down"
+              size={16}
+              color="#1D4ED8"
+              style={{ marginLeft: 4 }}
+            />
           )}
         </TouchableOpacity>
         <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
@@ -582,9 +640,11 @@ export default function DriverMainScreen({
         </TouchableOpacity>
       </View>
 
-      {/* Alt Bilgi Paneli */}
       <View style={[styles.sheet, { height: sheetExpanded ? "76%" : "46%" }]}>
-        <TouchableOpacity style={styles.dragHandleContainer} onPress={toggleSheet}>
+        <TouchableOpacity
+          style={styles.dragHandleContainer}
+          onPress={toggleSheet}
+        >
           <View style={styles.dragHandle} />
         </TouchableOpacity>
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -592,12 +652,23 @@ export default function DriverMainScreen({
             <View>
               <View style={styles.badgeRow}>
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{routeData?.number || "SRV"}</Text>
+                  <Text style={styles.badgeText}>
+                    {routeData?.number || "SRV"}
+                  </Text>
                 </View>
-                <Text style={styles.statusText}>{tripActive ? "Aktif" : "Hazır"}</Text>
-                <View style={[styles.statusDot, tripActive && styles.statusDotActive]} />
+                <Text style={styles.statusText}>
+                  {tripActive ? "Aktif" : "Hazır"}
+                </Text>
+                <View
+                  style={[
+                    styles.statusDot,
+                    tripActive && styles.statusDotActive,
+                  ]}
+                />
               </View>
-              <Text style={styles.title}>{routeData?.name || "Kayıtlı aktif rota yok"}</Text>
+              <Text style={styles.title}>
+                {routeData?.name || "Kayıtlı aktif rota yok"}
+              </Text>
             </View>
             <View style={styles.capacityBox}>
               <Text
@@ -608,28 +679,39 @@ export default function DriverMainScreen({
               >
                 {occupancy}
               </Text>
-              <Text style={styles.capacityLabel}>{routeData?.capacity || 0}</Text>
+              <Text style={styles.capacityLabel}>
+                {routeData?.capacity || 0}
+              </Text>
             </View>
           </View>
 
           <View style={styles.summaryCard}>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Toplam süre</Text>
-              <Text style={styles.summaryValue}>{formatElapsed(elapsedSeconds)}</Text>
+              <Text style={styles.summaryValue}>
+                {formatElapsed(elapsedSeconds)}
+              </Text>
             </View>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Sonraki durak</Text>
-              <Text style={styles.summaryValue}>{nextStop?.label || "Bekleniyor"}</Text>
+              <Text style={styles.summaryValue}>
+                {nextStop?.label || "Bekleniyor"}
+              </Text>
             </View>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Araç</Text>
-              <Text style={styles.summaryValue}>{routeData?.vehicleModel || "Bilgi Yok"}</Text>
+              <Text style={styles.summaryValue}>
+                {routeData?.vehicleModel || "Bilgi Yok"}
+              </Text>
             </View>
           </View>
 
           <View style={styles.controlsRow}>
             <TouchableOpacity
-              style={[styles.primaryButton, connecting && styles.primaryButtonDisabled]}
+              style={[
+                styles.primaryButton,
+                connecting && styles.primaryButtonDisabled,
+              ]}
               onPress={handleStartTrip}
               disabled={connecting || tripActive}
             >
@@ -652,9 +734,13 @@ export default function DriverMainScreen({
 
           {routeData && routeData.stops.length > 0 ? (
             <View style={styles.stopList}>
-              <Text style={styles.sectionTitle}>DURAKLAR (SADECE AKTİF YOLCULAR)</Text>
+              <Text style={styles.sectionTitle}>
+                DURAKLAR (SADECE AKTİF YOLCULAR)
+              </Text>
               {routeData.stops.map((stop, i) => {
-                const isActive = activePassengers.includes(stop.passengerId.toLowerCase());
+                const isActive = activePassengers.includes(
+                  stop.passengerId.toLowerCase(),
+                );
                 return (
                   <TouchableOpacity
                     key={stop.id}
@@ -670,7 +756,9 @@ export default function DriverMainScreen({
                           i === currentStopIndex && styles.stopMarkerCurrent,
                         ]}
                       />
-                      {i < routeData.stops.length - 1 && <View style={styles.stopConnector} />}
+                      {i < routeData.stops.length - 1 && (
+                        <View style={styles.stopConnector} />
+                      )}
                     </View>
                     <View style={styles.stopTextWrap}>
                       <Text style={styles.stopName}>
@@ -685,7 +773,8 @@ export default function DriverMainScreen({
           ) : (
             <View style={styles.emptyStateBox}>
               <Text style={styles.emptyStateText}>
-                Size atanmış aktif bir rota bulunamadı. Lütfen yöneticinizin bir atama yapmasını bekleyin.
+                Size atanmış aktif bir rota bulunamadı. Lütfen yöneticinizin bir
+                atama yapmasını bekleyin.
               </Text>
             </View>
           )}
@@ -915,7 +1004,12 @@ const selectStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
-  routeName: { fontSize: 16, fontWeight: "700", color: "#111827", marginBottom: 4 },
+  routeName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 4,
+  },
   routePlate: { fontSize: 13, color: "#2563EB", fontWeight: "600" },
   emptyBox: {
     alignItems: "center",
@@ -925,5 +1019,10 @@ const selectStyles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 16,
   },
-  emptyText: { textAlign: "center", color: "#6B7280", marginTop: 10, fontSize: 14 },
+  emptyText: {
+    textAlign: "center",
+    color: "#6B7280",
+    marginTop: 10,
+    fontSize: 14,
+  },
 });
