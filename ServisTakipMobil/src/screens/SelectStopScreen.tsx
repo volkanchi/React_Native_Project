@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { routeService } from '../services/routeService';
@@ -14,11 +14,17 @@ interface StopPreview {
 
 export default function SelectStopScreen({ route, navigation }: any) {
   const { routeCode, routeName, pathCoordinates, existingStops = [] } = route.params;
-
   const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [snapPoint, setSnapPoint] = useState<{ latitude: number; longitude: number } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [checkingCoverage, setCheckingCoverage] = useState(false);
   const [routePolyline, setRoutePolyline] = useState<Coordinate[]>([]);
   const [calculatingRoute, setCalculatingRoute] = useState(true);
+  const [pendingSelection, setPendingSelection] = useState<{
+    location: { latitude: number; longitude: number };
+    snap: { latitude: number; longitude: number } | null;
+    walkingDistanceMeters: number;
+  } | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -51,7 +57,50 @@ export default function SelectStopScreen({ route, navigation }: any) {
         longitudeDelta: 0.08,
       }
     : { latitude: 41.0082, longitude: 28.9784, latitudeDelta: 0.08, longitudeDelta: 0.08 };
+  const handleMapPress = async (coord: { latitude: number; longitude: number }) => {
+    setCheckingCoverage(true);
+    const token = await storageService.getToken();
+    if (!token) {
+      setCheckingCoverage(false);
+      return;
+    }
 
+    const res = await routeService.validateStopCoverage(routeCode, coord, token);
+    setCheckingCoverage(false);
+
+    if (!res.success) {
+      Alert.alert(
+        'Güzergah Dışında',
+        res.message ||
+          'Seçtiğiniz nokta bu servisin güzergah alanının dışındadır. Lütfen ana güzergaha en fazla 500 metre mesafede bir nokta seçiniz.',
+      );
+      return;
+    }
+
+    const coverage = res.data;
+    if (!coverage.requiresWalkingNotice) {
+      // RoutePath tanımlı değil / kontrol atlandı: direkt kabul et
+      setSelectedLocation(coord);
+      setSnapPoint(null);
+      return;
+    }
+
+    setPendingSelection({
+      location: coord,
+      snap: coverage.snapCoordinate
+        ? { latitude: coverage.snapCoordinate.latitude, longitude: coverage.snapCoordinate.longitude }
+        : null,
+      walkingDistanceMeters: coverage.walkingDistanceMeters,
+    });
+  };
+
+  const handleConfirmWalkingNotice = () => {
+    if (!pendingSelection) return;
+    setSelectedLocation(pendingSelection.location);
+    setSnapPoint(pendingSelection.snap);
+    setPendingSelection(null);
+  };
+    
   const handleJoin = async () => {
     if (!selectedLocation) {
       Alert.alert('Uyarı', 'Lütfen haritaya dokunarak veya mevcut bir durağı seçerek bineceğiniz yeri belirleyin.');
@@ -83,9 +132,8 @@ export default function SelectStopScreen({ route, navigation }: any) {
         style={StyleSheet.absoluteFillObject}
         provider={PROVIDER_GOOGLE}
         initialRegion={initialRegion}
-        onPress={(e) => setSelectedLocation(e.nativeEvent.coordinate)}
+        onPress={(e) => handleMapPress(e.nativeEvent.coordinate)}
       >
-        {/* ORS Rota Çizgisi */}
         {routePolyline.length > 1 && (
           <Polyline
             coordinates={routePolyline}
@@ -114,6 +162,40 @@ export default function SelectStopScreen({ route, navigation }: any) {
         ))}
 
         {/* 2. Kullanıcının Kendi Seçtiği Biniş Noktası (Yeşil Pin) */}
+        {selectedLocation && snapPoint && (
+          <Polyline
+            coordinates={[selectedLocation, snapPoint]}
+            strokeColor="#F59E0B"
+            strokeWidth={2}
+            lineDashPattern={[6, 6]}
+            zIndex={2}
+          />
+        )}
+
+        {existingStops.map((stop: StopPreview, idx: number) => (
+          <Marker
+            key={`existing-stop-${idx}-${stop.latitude}`}
+            coordinate={{ latitude: stop.latitude, longitude: stop.longitude }}
+            pinColor="#3B82F6"
+            title={stop.label || `Mevcut Durak ${idx + 1}`}
+            description="Bu noktadan binmek için dokunun"
+            onPress={() => {
+              setSelectedLocation({ latitude: stop.latitude, longitude: stop.longitude });
+              setSnapPoint(null);
+            }}
+          />
+        ))}
+
+        {snapPoint && (
+          <Marker
+            coordinate={snapPoint}
+            pinColor="#F59E0B"
+            title="Ana Cadde Durağı"
+            description="Servis buradan geçecek"
+            zIndex={998}
+          />
+        )}
+
         {selectedLocation && (
           <Marker
             coordinate={selectedLocation}
@@ -124,6 +206,13 @@ export default function SelectStopScreen({ route, navigation }: any) {
           />
         )}
       </MapView>
+
+      {checkingCoverage && (
+        <View style={styles.loadingBadge}>
+          <ActivityIndicator size="small" color="#2563EB" />
+          <Text style={styles.loadingText}>Kapsama alanı kontrol ediliyor...</Text>
+        </View>
+      )}
 
       {/* Rota Hesaplanıyor Rozeti */}
       {calculatingRoute && (
@@ -174,9 +263,42 @@ export default function SelectStopScreen({ route, navigation }: any) {
           )}
         </TouchableOpacity>
       </View>
+      <Modal visible={!!pendingSelection} transparent animationType="fade">
+        <View style={modalStyles.overlay}>
+          <View style={modalStyles.card}>
+            <Ionicons name="walk-outline" size={28} color="#F59E0B" style={{ marginBottom: 8 }} />
+            <Text style={modalStyles.title}>Yürüme Mesafesi Onayı</Text>
+            <Text style={modalStyles.body}>
+              Biniş noktanız servis ana güzergahına {Math.round(pendingSelection?.walkingDistanceMeters || 0)}{' '}
+              metre mesafededir. Servis ana caddeden geçecektir; lütfen biniş saatinde caddedeki durak
+              noktasında bulununuz.
+            </Text>
+            <View style={modalStyles.actions}>
+              <TouchableOpacity style={modalStyles.cancelBtn} onPress={() => setPendingSelection(null)}>
+                <Text style={modalStyles.cancelText}>Vazgeç</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={modalStyles.confirmBtn} onPress={handleConfirmWalkingNotice}>
+                <Text style={modalStyles.confirmText}>Onaylıyorum</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
+
+const modalStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(15,23,42,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  card: { backgroundColor: '#fff', borderRadius: 20, padding: 22, width: '100%' },
+  title: { fontSize: 17, fontWeight: '800', color: '#0F172A', marginBottom: 8 },
+  body: { fontSize: 13, color: '#475569', lineHeight: 19, marginBottom: 18 },
+  actions: { flexDirection: 'row', gap: 10 },
+  cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: '#F1F5F9', alignItems: 'center' },
+  cancelText: { color: '#475569', fontWeight: '700' },
+  confirmBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: '#F59E0B', alignItems: 'center' },
+  confirmText: { color: '#fff', fontWeight: '800' },
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

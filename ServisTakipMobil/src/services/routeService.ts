@@ -185,4 +185,37 @@ export const routeService = {
       return { success: false, message: "Bağlantı hatası." };
     }
   },
+  validateStopCoverage: async (
+    routeCode: string,
+    location: { latitude: number; longitude: number },
+    token: string,
+  ) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/PassengerRoute/validate-stop`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ routeCode, location }),
+      });
+
+      const responseText = await response.text();
+      let data: any = {};
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          console.log("JSON dönüştürülemedi:", responseText);
+        }
+      }
+
+      if (!response.ok) {
+        return { success: false, message: data.message || `Hata (Status: ${response.status})` };
+      }
+      return { success: true, data: data.data || data };
+    } catch (error) {
+      return { success: false, message: "Bağlantı hatası." };
+    }
+  },
 };

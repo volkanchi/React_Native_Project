@@ -161,8 +161,7 @@ namespace ServisTakipApi.Services
 
             return null;
         }
-
-         private static RouteResponseDto ToResponse(Models.Route route)
+        private static RouteResponseDto ToResponse(Models.Route route)
         {
             var pathCoords = route.RoutePath?.Coordinates;
             var orderedStops = route.Stops.OrderBy(s => s.StopOrder).ToList();
@@ -204,20 +203,100 @@ namespace ServisTakipApi.Services
             };
         }
 
-        public async Task<Response<Guid>> JoinRouteAsync(Guid passengerId, JoinRouteDto joinDto)
+        private const double MaxCoverageMeters = 500;
+        // Yolcu noktasını rota omurgasına (RoutePath) izdüşürür ve aradaki
+        // kuş uçuşu mesafeyi metre cinsinden döner. RoutePath tanımlı değilse
+        // (şirket henüz güzergah çizmemişse) null döner — kapsama kontrolü atlanır.
+        private (double DistanceMeters, Coordinate SnapCoordinate)? ProjectAndMeasure(Models.Route route, Point passengerPoint)
+        {
+            if (route.RoutePath == null) return null;
+
+            var indexedLine = new NetTopologySuite.LinearReferencing.LengthIndexedLine(route.RoutePath);
+            var projectedIndex = indexedLine.Project(passengerPoint.Coordinate);
+            var snapCoordinate = indexedLine.ExtractPoint(projectedIndex);
+
+            return (HaversineMeters(passengerPoint.Coordinate, snapCoordinate), snapCoordinate);
+        }
+
+        private static double HaversineMeters(Coordinate a, Coordinate b)
+        {
+            const double R = 6371000; // metre
+            static double ToRad(double v) => v * Math.PI / 180;
+            var dLat = ToRad(b.Y - a.Y);
+            var dLon = ToRad(b.X - a.X);
+            var h = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                    Math.Cos(ToRad(a.Y)) * Math.Cos(ToRad(b.Y)) * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+            return 2 * R * Math.Asin(Math.Sqrt(h));
+        }
+
+        public async Task<Response<StopCoverageResultDto>> ValidateStopCoverageAsync(string routeCode, CoordinateDto location)
+        {
+            var route = await _routeRepository.GetRouteByCodeAsync(routeCode);
+            if (route == null)
+                return Response<StopCoverageResultDto>.Fail("Geçersiz veya silinmiş bir servis kodu girdiniz.");
+
+            var passengerPoint = _geometryFactory.CreatePoint(new Coordinate(location.Longitude, location.Latitude));
+            var projection = ProjectAndMeasure(route, passengerPoint);
+
+            if (projection == null)
+            {
+                return Response<StopCoverageResultDto>.Successful(new StopCoverageResultDto
+                {
+                    IsWithinCoverage = true,
+                    WalkingDistanceMeters = 0,
+                    RequiresWalkingNotice = false
+                });
+            }
+
+            var (distanceMeters, snapCoordinate) = projection.Value;
+            if (distanceMeters > MaxCoverageMeters)
+            {
+                return Response<StopCoverageResultDto>.Fail(
+                    $"Seçtiğiniz nokta servis güzergahına {distanceMeters:F0}m mesafededir. Maksimum sınır {MaxCoverageMeters:F0} metredir.");
+            }
+
+            return Response<StopCoverageResultDto>.Successful(new StopCoverageResultDto
+            {
+                IsWithinCoverage = true,
+                WalkingDistanceMeters = distanceMeters,
+                SnapCoordinate = new CoordinateDto { Latitude = snapCoordinate.Y, Longitude = snapCoordinate.X },
+                RequiresWalkingNotice = true
+            });
+        }
+
+        public async Task<Response<JoinRouteResponseDto>> JoinRouteAsync(Guid passengerId, JoinRouteDto joinDto)
         {
             var route = await _routeRepository.GetRouteByCodeAsync(joinDto.RouteCode);
-            if (route == null) return Response<Guid>.Fail("Geçersiz veya silinmiş bir servis kodu girdiniz.");
+            if (route == null) return Response<JoinRouteResponseDto>.Fail("Geçersiz veya silinmiş bir servis kodu girdiniz.");
 
             if (route.Stops.Any(s => s.PassengerId == passengerId))
-                return Response<Guid>.Fail("Bu servise zaten kayıtlısınız.");
+                return Response<JoinRouteResponseDto>.Fail("Bu servise zaten kayıtlısınız.");
+
+            var passengerPoint = _geometryFactory.CreatePoint(new Coordinate(joinDto.Location.Longitude, joinDto.Location.Latitude));
+
+            double? walkingDistance = null;
+            CoordinateDto? snapCoordinate = null;
+
+            var projection = ProjectAndMeasure(route, passengerPoint);
+            if (projection != null)
+            {
+                var (distanceMeters, snap) = projection.Value;
+                if (distanceMeters > MaxCoverageMeters)
+                {
+                    return Response<JoinRouteResponseDto>.Fail(
+                        $"Seçtiğiniz nokta servis güzergahına {distanceMeters:F0}m mesafededir. Maksimum sınır {MaxCoverageMeters:F0} metredir.");
+                }
+
+                walkingDistance = distanceMeters;
+                snapCoordinate = new CoordinateDto { Latitude = snap.Y, Longitude = snap.X };
+            }
 
             var newStop = new RouteStop
             {
                 RouteId = route.Id,
                 PassengerId = passengerId,
                 IsActive = true,
-                Location = _geometryFactory.CreatePoint(new Coordinate(joinDto.Location.Longitude, joinDto.Location.Latitude))
+                Location = passengerPoint
             };
 
             route.Stops.Add(newStop);
@@ -227,7 +306,13 @@ namespace ServisTakipApi.Services
                 newStop,
                 route.Stops.Where(s => s.Id != newStop.Id));
 
-            return Response<Guid>.Successful("Servise başarıyla katıldınız.", route.Id);
+            return Response<JoinRouteResponseDto>.Successful("Servise başarıyla katıldınız.", new JoinRouteResponseDto
+            {
+                RouteId = route.Id,
+                WalkingDistanceMeters = walkingDistance,
+                SnapCoordinate = snapCoordinate,
+                RequiresWalkingNotice = walkingDistance.HasValue
+            });
         }
 
         public async Task<Response<bool>> UpdateStopLocationAsync(Guid passengerId, Guid routeId, UpdateStopLocationDto updateDto)
@@ -238,10 +323,19 @@ namespace ServisTakipApi.Services
             var stop = route.Stops.FirstOrDefault(s => s.PassengerId == passengerId);
             if (stop == null) return Response<bool>.Fail("Bu servise ait bir kaydınız bulunamadı.");
 
-            stop.Location = _geometryFactory.CreatePoint(new Coordinate(updateDto.NewLocation.Longitude, updateDto.NewLocation.Latitude));
-            ReorderRouteStops(route);
+            var newPoint = _geometryFactory.CreatePoint(new Coordinate(updateDto.NewLocation.Longitude, updateDto.NewLocation.Latitude));
 
+            var projection = ProjectAndMeasure(route, newPoint);
+            if (projection.HasValue && projection.Value.DistanceMeters > MaxCoverageMeters)
+            {
+                return Response<bool>.Fail(
+                    $"Seçtiğiniz nokta servis güzergahına {projection.Value.DistanceMeters:F0}m mesafededir. Maksimum sınır {MaxCoverageMeters:F0} metredir.");
+            }
+
+            stop.Location = newPoint;
+            ReorderRouteStops(route);
             await _routeRepository.UpdateRouteStopsAsync(route.Stops);
+
             return Response<bool>.Successful("Konumunuz başarıyla güncellendi.", true);
         }
 
@@ -299,7 +393,7 @@ namespace ServisTakipApi.Services
             return Response<IEnumerable<object>>.Successful("Rotalar başarıyla getirildi.", result);
         }
 
-       public async Task<Response<RouteResponseDto>> GetPassengerRouteAsync(Guid passengerId, Guid routeId)
+        public async Task<Response<RouteResponseDto>> GetPassengerRouteAsync(Guid passengerId, Guid routeId)
         {
             var route = await _routeRepository.GetRouteWithStopsByIdAsync(routeId);
             if (route == null || !route.Stops.Any(s => s.PassengerId == passengerId))

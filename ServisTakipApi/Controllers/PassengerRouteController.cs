@@ -76,6 +76,12 @@ namespace ServisTakipApi.Controllers
             return result.Success ? Ok(result) : BadRequest(result);
         }
 
+        [HttpPost("validate-stop")]
+        public async Task<IActionResult> ValidateStop([FromBody] ValidateStopDto dto)
+        {
+            var response = await _routeService.ValidateStopCoverageAsync(dto.RouteCode, dto.Location);
+            return response.Success ? Ok(response) : BadRequest(response);
+        }
         private bool TryGetPassengerId(out Guid passengerId)
         {
             var claim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
