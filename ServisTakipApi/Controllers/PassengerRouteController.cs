@@ -1,12 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ServisTakipApi.DTOs.Response;
 using ServisTakipApi.DTOs.RouteDTOs;
 using ServisTakipApi.Interfaces;
-using System.Security.Claims;
 using System;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
-using ServisTakipApi.DTOs.Response;
 
 namespace ServisTakipApi.Controllers
 {
@@ -49,16 +49,9 @@ namespace ServisTakipApi.Controllers
             return response.Success ? Ok(response) : BadRequest(response);
         }
 
-        private bool TryGetPassengerId(out Guid passengerId)
-        {
-            var claim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
-            return Guid.TryParse(claim, out passengerId);
-        }
         [HttpGet("my-routes")]
-        [Authorize(Roles = "Yolcu")]
         public async Task<IActionResult> GetMyRoutes()
         {
-            // Token içinden giriş yapan yolcunun ID'sini alıyoruz
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdClaim))
                 return Unauthorized(Response<string>.Fail("Kullanıcı kimliği doğrulanamadı."));
@@ -77,11 +70,16 @@ namespace ServisTakipApi.Controllers
         }
 
         [HttpGet("preview/{routeCode}")]
-        [Authorize(Roles = "Yolcu")]
         public async Task<IActionResult> PreviewRoute(string routeCode)
         {
             var result = await _routeService.PreviewRouteForJoinAsync(routeCode);
             return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+        private bool TryGetPassengerId(out Guid passengerId)
+        {
+            var claim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            return Guid.TryParse(claim, out passengerId);
         }
     }
 }

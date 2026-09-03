@@ -15,18 +15,22 @@ import { routeService } from "../services/routeService";
 import { storageService } from "../services/storageService";
 import ProfileUpdateModal from "../components/ProfileUpdateModal";
 
-
 interface PassengerMainScreenProps {
-  user: any;
+  user?: any;
   onNavigateToLiveTracking: (routeId: string) => void;
-  onNavigateToSelectStop: (routeCode: string, routeName: string, pathCoords: any[]) => void; // BUNU EKLEYİN
+  onNavigateToSelectStop: (
+    routeCode: string,
+    routeName: string,
+    pathCoords: any[],
+    existingStops?: any[],
+  ) => void;
   onLogout: () => void;
 }
 
-export default function PassengerMainScreen({ 
-  onNavigateToLiveTracking, 
-  onNavigateToSelectStop, 
-  onLogout 
+export default function PassengerMainScreen({
+  onNavigateToLiveTracking,
+  onNavigateToSelectStop,
+  onLogout,
 }: PassengerMainScreenProps) {
   const [routeCode, setRouteCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -51,24 +55,27 @@ export default function PassengerMainScreen({
     setFetchingRoutes(false);
   };
 
-  // 2. Yeni rotaya (odaya) katıl
-  // 2. Rota kodunu gönderip önizleme (çizgi) verisini al ve Harita ekranına git
   const handlePreviewRoute = async () => {
-    if (!routeCode.trim()) return Alert.alert('Uyarı', 'Lütfen bir rota kodu giriniz.');
-    
+    if (!routeCode.trim())
+      return Alert.alert("Uyarı", "Lütfen bir rota kodu giriniz.");
+
     setLoading(true);
     const token = await storageService.getToken();
     if (!token) return;
 
-    // Direkt katılmak yerine önizleme verisini (harita çizgisini) çekiyoruz
     const result = await routeService.previewRoute(routeCode.trim(), token);
-    
+
     if (result.success && result.data) {
-      setRouteCode('');
-      // Navigasyon ile kullanıcıyı Durak Seçim Haritasına yolluyoruz
-      onNavigateToSelectStop(routeCode.trim(), result.data.name, result.data.pathCoordinates);
+      setRouteCode("");
+      // existingStops listesini de sayfaya gönderiyoruz
+      onNavigateToSelectStop(
+        routeCode.trim(),
+        result.data.name,
+        result.data.pathCoordinates,
+        result.data.existingStops || [],
+      );
     } else {
-      Alert.alert('Hata', result.message || 'Rota bulunamadı.');
+      Alert.alert("Hata", result.message || "Rota bulunamadı.");
     }
     setLoading(false);
   };
@@ -178,12 +185,12 @@ export default function PassengerMainScreen({
           </View>
         </View>
       </View>
-      <ProfileUpdateModal 
-        visible={isProfileModalVisible} 
-        onClose={() => setIsProfileModalVisible(false)} 
+      <ProfileUpdateModal
+        visible={isProfileModalVisible}
+        onClose={() => setIsProfileModalVisible(false)}
         onProfileUpdated={() => {
-           // Profil güncellendikten sonra yapılacak ekstra bir işlem varsa buraya yazılır.
-        }} 
+          // Profil güncellendikten sonra yapılacak ekstra bir işlem varsa buraya yazılır.
+        }}
       />
     </View>
   );

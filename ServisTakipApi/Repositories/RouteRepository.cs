@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using ServisTakipApi.Context;
 using ServisTakipApi.Interfaces;
 using ServisTakipApi.Models;
@@ -48,15 +47,16 @@ namespace ServisTakipApi.Repositories
                 ? null
                 : "Bir veya daha fazla yolcu bulunamadı, firmaya ait değil veya pasif durumda.";
         }
+
         public async Task<Models.Route?> GetRouteByIdAndCompanyIdAsync(Guid routeId, Guid companyId)
         {
             return await _context.Routes
                 .Include(r => r.Stops)
                 .FirstOrDefaultAsync(r => r.Id == routeId && r.CompanyId == companyId && !r.Deleted);
         }
+
         public async Task<string?> GetVehiclePlateByIdAsync(Guid vehicleId, Guid companyId)
         {
-            // Aracı bul ve sadece plakasını döndür (Güvenlik için CompanyId kontrolü de yapıyoruz)
             var vehicle = await _context.Vehicles
                 .FirstOrDefaultAsync(v => v.Id == vehicleId && v.CompanyId == companyId && !v.Deleted);
 
@@ -76,17 +76,16 @@ namespace ServisTakipApi.Repositories
             if (route == null) return false;
 
             route.Deleted = true;
-            // İleride buraya DeleteDate ve DeleteUser da eklenebilir
-
             _context.Routes.Update(route);
             await _context.SaveChangesAsync();
             return true;
         }
+
         public async Task<Models.Route?> GetRouteByCodeAsync(string routeCode)
         {
-            // Koda göre rotayı buluruz (Silinmemiş olmalı)
             return await _context.Routes
-                .Include(r => r.Stops) // Durakları (yolcular) da dahil et ki sırayı (StopOrder) hesaplayabilelim
+                .Include(r => r.Stops)
+                    .ThenInclude(s => s.Passenger)
                 .FirstOrDefaultAsync(r => r.RouteCode == routeCode && !r.Deleted);
         }
 
@@ -147,10 +146,9 @@ namespace ServisTakipApi.Repositories
             _context.RouteStops.UpdateRange(stops);
             await _context.SaveChangesAsync();
         }
+
         public async Task<IEnumerable<Models.Route>> GetRoutesByPassengerIdAsync(Guid passengerId)
         {
-            // Yolcunun dahil olduğu rotaları; durak, araç ve şoför bilgileriyle birlikte (JOIN) çekiyoruz
-
             return await _context.Routes
                 .Include(r => r.Stops)
                 .Include(r => r.Vehicle)
@@ -158,11 +156,10 @@ namespace ServisTakipApi.Repositories
                 .Where(r => r.Stops.Any(s => s.PassengerId == passengerId) && !r.Deleted)
                 .AsNoTracking()
                 .ToListAsync();
-
         }
+
         public async Task<Models.Route?> GetActiveRouteByDriverUserIdAsync(Guid userId)
         {
-            // Şoför (Driver) tablosu ile Rota (Route) tablosunu UserId üzerinden eşleştirerek aktif rotayı buluyoruz
             return await _context.Routes
                 .Include(r => r.Vehicle)
                 .Include(r => r.Stops)
@@ -183,6 +180,7 @@ namespace ServisTakipApi.Repositories
                 .AsNoTracking()
                 .ToListAsync();
         }
+
         public async Task<IEnumerable<Models.Route>> GetRoutesByDriverUserIdAsync(Guid userId)
         {
             return await _context.Routes
@@ -210,6 +208,5 @@ namespace ServisTakipApi.Repositories
                 .Select(x => x.Route)
                 .FirstOrDefaultAsync();
         }
-
     }
 }

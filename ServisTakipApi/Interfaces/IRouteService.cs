@@ -2,6 +2,7 @@ using ServisTakipApi.DTOs.Response;
 using ServisTakipApi.DTOs.RouteDTOs;
 using ServisTakipApi.Models;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace ServisTakipApi.Interfaces
@@ -17,7 +18,7 @@ namespace ServisTakipApi.Interfaces
         Task<Response<IEnumerable<object>>> GetPassengerRoutesAsync(Guid passengerId);
         Task<Response<RouteResponseDto>> GetPassengerRouteAsync(Guid passengerId, Guid routeId);
         Task<Response<object>> GetDriverActiveRouteAsync(Guid userId);
-        Task<Response<object>> PreviewRouteForJoinAsync(string routeCode);
+        Task<Response<RoutePreviewResponseDto>> PreviewRouteForJoinAsync(string routeCode);
         Task<Response<IEnumerable<RouteResponseDto>>> GetRoutesByCompanyAsync(Guid companyId);
         Task<Response<object>> GetDriverActiveRouteAsync(Guid userId, Guid? routeId = null);
         Task<Response<IEnumerable<object>>> GetDriverRoutesAsync(Guid userId);

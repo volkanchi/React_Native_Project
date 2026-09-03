@@ -16,12 +16,17 @@ namespace ServisTakipApi.Services
     {
         private readonly IRouteRepository _routeRepository;
         private readonly ILogger<RouteService> _logger;
+        private readonly IMapService _mapService;
         private readonly GeometryFactory _geometryFactory = NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326);
 
-        public RouteService(IRouteRepository routeRepository, ILogger<RouteService> logger)
+        public RouteService(
+            IRouteRepository routeRepository,
+            ILogger<RouteService> logger,
+            IMapService mapService)
         {
             _routeRepository = routeRepository;
             _logger = logger;
+            _mapService = mapService;
         }
 
         public async Task<Response<RouteResponseDto>> CreateRouteAsync(Guid companyId, CreateRouteDto createDto)
@@ -36,7 +41,7 @@ namespace ServisTakipApi.Services
                     companyId,
                     createDto.VehicleId,
                     createDto.DriverId,
-                    Array.Empty<Guid>()); // Sıfır rota oluşturulduğunda yolcu (Stops) olmaz
+                    Array.Empty<Guid>());
 
                 if (resourceError != null)
                     return Response<RouteResponseDto>.Fail(resourceError);
@@ -68,7 +73,7 @@ namespace ServisTakipApi.Services
                     VehicleId = createDto.VehicleId,
                     DriverId = createDto.DriverId,
                     RoutePath = routePath,
-                    Stops = new List<RouteStop>() // Başlangıçta duraklar tamamen boş
+                    Stops = new List<RouteStop>()
                 };
 
                 var createdRoute = await _routeRepository.AddRouteAsync(newRoute);
@@ -151,7 +156,6 @@ namespace ServisTakipApi.Services
             if (createDto == null || string.IsNullOrWhiteSpace(createDto.Name))
                 return "Rota adı zorunludur.";
 
-            // Harita çizgisi çizilecekse en az 2 nokta olmalı, ancak hiç çizilmeyebilir (null gelebilir)
             if (createDto.PathCoordinates != null && createDto.PathCoordinates.Count == 1)
                 return "Eğer rota yolu çizilecekse en az iki koordinat içermelidir.";
 
@@ -187,6 +191,7 @@ namespace ServisTakipApi.Services
                 }).ToList()
             };
         }
+
         public async Task<Response<Guid>> JoinRouteAsync(Guid passengerId, JoinRouteDto joinDto)
         {
             var route = await _routeRepository.GetRouteByCodeAsync(joinDto.RouteCode);
@@ -195,7 +200,6 @@ namespace ServisTakipApi.Services
             if (route.Stops.Any(s => s.PassengerId == passengerId))
                 return Response<Guid>.Fail("Bu servise zaten kayıtlısınız.");
 
-            // Frontend'den gelen seçilmiş konumu kullanıyoruz
             var newStop = new RouteStop
             {
                 RouteId = route.Id,
@@ -205,8 +209,6 @@ namespace ServisTakipApi.Services
             };
 
             route.Stops.Add(newStop);
-
-            // NetTopologySuite ile konumu harita çizgisine (Polyline) en yakın yere yapıştırıp sıraya dizer
             ReorderRouteStops(route);
 
             await _routeRepository.AddRouteStopAndUpdateOrdersAsync(
@@ -218,22 +220,16 @@ namespace ServisTakipApi.Services
 
         public async Task<Response<bool>> UpdateStopLocationAsync(Guid passengerId, Guid routeId, UpdateStopLocationDto updateDto)
         {
-            // Artık sadece durağı değil, çizgiyi de (Route) getirmeliyiz ki sırayı hesaplayabilelim
             var route = await _routeRepository.GetRouteWithStopsByIdAsync(routeId);
             if (route == null) return Response<bool>.Fail("Rota bulunamadı.");
 
             var stop = route.Stops.FirstOrDefault(s => s.PassengerId == passengerId);
             if (stop == null) return Response<bool>.Fail("Bu servise ait bir kaydınız bulunamadı.");
 
-            // 1. Konumu güncelle
             stop.Location = _geometryFactory.CreatePoint(new Coordinate(updateDto.NewLocation.Longitude, updateDto.NewLocation.Latitude));
-
-            // 2. Konum değiştiği için durağın sırası (StopOrder) değişmiş olabilir, yeniden sırala!
             ReorderRouteStops(route);
 
-            // 3. Tüm güncellemeleri veritabanına yansıt
             await _routeRepository.UpdateRouteStopsAsync(route.Stops);
-
             return Response<bool>.Successful("Konumunuz başarıyla güncellendi.", true);
         }
 
@@ -250,14 +246,13 @@ namespace ServisTakipApi.Services
             await _routeRepository.RemoveRouteStopAndUpdateOrdersAsync(stop, route.Stops);
             return Response<bool>.Successful("Servisten başarıyla ayrıldınız.", true);
         }
+
         private void ReorderRouteStops(Models.Route route)
         {
             if (route.RoutePath == null || !route.Stops.Any()) return;
 
-            // 1. Ana rotayı indekslenebilir bir matematiksel çizgiye çevir
             var indexedLine = new NetTopologySuite.LinearReferencing.LengthIndexedLine(route.RoutePath);
 
-            // 2. Her durağın konumunu ana çizgiye yansıt (izdüşüm) ve mesafesine (Project) göre küçükten büyüğe sırala
             var sortedStops = route.Stops
                 .Select(stop => new
                 {
@@ -267,18 +262,17 @@ namespace ServisTakipApi.Services
                 .OrderBy(x => x.ProjectedIndex)
                 .ToList();
 
-            // 3. Sıralanmış listeye 1'den başlayarak yeni durak sıralarını (StopOrder) ata
             int order = 1;
             foreach (var item in sortedStops)
             {
                 item.Stop.StopOrder = order++;
             }
         }
+
         public async Task<Response<IEnumerable<object>>> GetPassengerRoutesAsync(Guid passengerId)
         {
             var routes = await _routeRepository.GetRoutesByPassengerIdAsync(passengerId);
 
-            // Frontend'in liste ekranında ihtiyaç duyacağı özet bilgileri hazırlıyoruz
             var result = routes.Select(r => new
             {
                 Id = r.Id,
@@ -321,7 +315,7 @@ namespace ServisTakipApi.Services
                 {
                     Id = s.Id,
                     PassengerId = s.PassengerId,
-                    Label = $"Durak {s.StopOrder}", // İleride yolcu isimleri de çekilebilir
+                    Label = $"Durak {s.StopOrder}",
                     Time = "Bekleniyor",
                     Latitude = s.Location.Y,
                     Longitude = s.Location.X,
@@ -331,30 +325,75 @@ namespace ServisTakipApi.Services
 
             return Response<object>.Successful("Aktif rota getirildi.", result);
         }
-        public async Task<Response<object>> PreviewRouteForJoinAsync(string routeCode)
-        {
-            var route = await _routeRepository.GetRouteByCodeAsync(routeCode);
-            if (route == null)
-                return Response<object>.Fail("Geçersiz servis kodu.");
 
-            var pathCoordinates = route.RoutePath == null
-                ? new List<object>()
-                : route.RoutePath.Coordinates
-                    .Select(c => (object)new
+        public async Task<Response<RoutePreviewResponseDto>> PreviewRouteForJoinAsync(string routeCode)
+        {
+            try
+            {
+                var route = await _routeRepository.GetRouteByCodeAsync(routeCode);
+                if (route == null)
+                    return Response<RoutePreviewResponseDto>.Fail("Geçersiz veya silinmiş servis kodu.");
+
+                // 1. Haritada mavi pin olarak gösterilecek kayıtlı yolcu durakları
+                var existingStops = route.Stops
+                    .Where(s => s.IsActive && s.Location != null)
+                    .OrderBy(s => s.StopOrder)
+                    .Select(s => new ExistingStopDto
                     {
-                        Latitude = c.Y,
-                        Longitude = c.X
+                        Label = s.Passenger != null && !string.IsNullOrWhiteSpace(s.Passenger.Name)
+                            ? $"{s.Passenger.Name} {s.Passenger.Surname}".Trim()
+                            : $"Durak {s.StopOrder}",
+                        Latitude = s.Location.Y,
+                        Longitude = s.Location.X
                     })
                     .ToList();
 
-            var result = new
-            {
-                Name = route.Name,
-                PathCoordinates = pathCoordinates
-            };
+                // 2. Güzergah polyline çizgisi koordinatları
+                List<CoordinateDto> pathCoordinates = new();
 
-            return Response<object>.Successful("Rota önizlemesi getirildi.", result);
+                if (route.RoutePath != null && route.RoutePath.Coordinates.Length >= 2)
+                {
+                    pathCoordinates = route.RoutePath.Coordinates
+                        .Select(c => new CoordinateDto
+                        {
+                            Latitude = c.Y,
+                            Longitude = c.X
+                        })
+                        .ToList();
+                }
+                else if (existingStops.Count >= 2)
+                {
+                    var stopCoords = existingStops.Select(s => new CoordinateDto
+                    {
+                        Latitude = s.Latitude,
+                        Longitude = s.Longitude
+                    }).ToList();
+
+                    var calculatedPolyline = await _mapService.GetRoutePolylineAsync(stopCoords);
+                    if (calculatedPolyline != null && calculatedPolyline.Count > 0)
+                    {
+                        pathCoordinates = calculatedPolyline;
+                    }
+                }
+
+                var responseDto = new RoutePreviewResponseDto
+                {
+                    RouteId = route.Id,
+                    Name = route.Name,
+                    RouteCode = route.RouteCode,
+                    ExistingStops = existingStops,
+                    PathCoordinates = pathCoordinates
+                };
+
+                return Response<RoutePreviewResponseDto>.Successful("Rota önizlemesi başarıyla getirildi.", responseDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "PreviewRouteForJoinAsync failed for routeCode {RouteCode}", routeCode);
+                return Response<RoutePreviewResponseDto>.Fail("Rota önizlemesi yüklenirken bir hata oluştu.");
+            }
         }
+
         public async Task<Response<object>> GetDriverActiveRouteAsync(Guid userId, Guid? routeId = null)
         {
             var route = routeId.HasValue
@@ -388,6 +427,7 @@ namespace ServisTakipApi.Services
                 return Response<IEnumerable<object>>.Fail("Servisler getirilirken bir hata oluştu.");
             }
         }
+
         private static object ToDriverRouteDto(Models.Route route)
         {
             return new
