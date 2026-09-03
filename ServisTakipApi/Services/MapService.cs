@@ -4,9 +4,14 @@ using ServisTakipApi.DTOs.RouteDTOs;
 
 namespace ServisTakipApi.Services
 {
+    public class RoutePolylineResult
+    {
+        public List<CoordinateDto> Coordinates { get; set; } = new();
+        public string? ErrorDetail { get; set; }
+    }
     public interface IMapService
     {
-        Task<List<CoordinateDto>> GetRoutePolylineAsync(List<CoordinateDto> stops);
+        Task<RoutePolylineResult> GetRoutePolylineAsync(List<CoordinateDto> stops);
     }
 
     public class MapService : IMapService
@@ -20,21 +25,23 @@ namespace ServisTakipApi.Services
             _configuration = configuration;
         }
 
-        public async Task<List<CoordinateDto>> GetRoutePolylineAsync(List<CoordinateDto> stops)
+        public async Task<RoutePolylineResult> GetRoutePolylineAsync(List<CoordinateDto> stops)
         {
             try
             {
                 var apiKey = _configuration["ORS_API_KEY"];
                 if (string.IsNullOrWhiteSpace(apiKey))
                 {
-                    Console.WriteLine("❌ [MapService] appsettings.json dosyasında 'ORS_API_KEY' bulunamadı!");
-                    return new List<CoordinateDto>();
+                    const string msg = "ORS_API_KEY appsettings.json içinde tanımlı değil.";
+                    Console.WriteLine($"❌ [MapService] {msg}");
+                    return new RoutePolylineResult { ErrorDetail = msg };
                 }
 
                 if (stops == null || stops.Count < 2)
                 {
-                    Console.WriteLine("⚠️ [MapService] Rota çizimi için en az 2 durak noktası gereklidir.");
-                    return new List<CoordinateDto>();
+                    const string msg = "Rota çizimi için en az 2 durak noktası gereklidir.";
+                    Console.WriteLine($"⚠️ [MapService] {msg}");
+                    return new RoutePolylineResult { ErrorDetail = msg };
                 }
 
                 const string url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson";
@@ -43,11 +50,10 @@ namespace ServisTakipApi.Services
                 var radiuses = stops.Select(_ => -1).ToArray(); // Noktaları en yakın yola bağlar
 
                 using var request = new HttpRequestMessage(HttpMethod.Post, url);
-                
-                // FormatException hatasını önlemek için TryAddWithoutValidation kullanılır
+
                 request.Headers.TryAddWithoutValidation("Authorization", apiKey.Trim());
                 request.Headers.TryAddWithoutValidation("Accept", "application/json, application/geo+json");
-                
+
                 request.Content = JsonContent.Create(new
                 {
                     coordinates = coordinates,
@@ -59,13 +65,19 @@ namespace ServisTakipApi.Services
 
                 if (!response.IsSuccessStatusCode)
                 {
+                    var msg = $"ORS API Hatası ({response.StatusCode}): {responseBody}";
                     Console.WriteLine($"❌ [ORS API Hatası] Status: {response.StatusCode} | Detay: {responseBody}");
-                    return new List<CoordinateDto>();
+                    return new RoutePolylineResult { ErrorDetail = msg };
                 }
 
                 using var doc = JsonDocument.Parse(responseBody);
                 var features = doc.RootElement.GetProperty("features");
-                if (features.GetArrayLength() == 0) return new List<CoordinateDto>();
+                if (features.GetArrayLength() == 0)
+                {
+                    const string msg = "ORS rota bulamadı (features boş). Noktalar yol ağına çok uzak veya erişilemez olabilir.";
+                    Console.WriteLine($"⚠️ [MapService] {msg}");
+                    return new RoutePolylineResult { ErrorDetail = msg };
+                }
 
                 var polylineCoords = features[0]
                     .GetProperty("geometry")
@@ -82,12 +94,12 @@ namespace ServisTakipApi.Services
                 }
 
                 Console.WriteLine($"✅ [MapService] Rota başarıyla çizildi. Toplam {result.Count} koordinat.");
-                return result;
+                return new RoutePolylineResult { Coordinates = result };
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"❌ [MapService Hatası]: {ex.Message}");
-                return new List<CoordinateDto>();
+                return new RoutePolylineResult { ErrorDetail = ex.Message };
             }
         }
     }

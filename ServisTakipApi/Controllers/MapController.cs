@@ -27,13 +27,17 @@ namespace ServisTakipApi.Controllers
                     return BadRequest(new { success = false, message = "En az 2 durak noktası gereklidir." });
                 }
 
-                var polyline = await _mapService.GetRoutePolylineAsync(request.Stops);
-                if (polyline == null || polyline.Count == 0)
+                var result = await _mapService.GetRoutePolylineAsync(request.Stops);
+                if (result.Coordinates.Count == 0)
                 {
-                    return BadRequest(new { success = false, message = "Güzergah hesaplanamadı. Backend konsol loglarını kontrol edin." });
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = $"Güzergah hesaplanamadı: {result.ErrorDetail ?? "Bilinmeyen hata"}"
+                    });
                 }
 
-                return Ok(new { success = true, data = polyline });
+                return Ok(new { success = true, data = result.Coordinates });
             }
             catch (Exception ex)
             {

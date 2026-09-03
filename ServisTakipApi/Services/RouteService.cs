@@ -49,9 +49,9 @@ namespace ServisTakipApi.Services
                 LineString? routePath = null;
                 if (createDto.PathCoordinates != null && createDto.PathCoordinates.Count >= 2)
                 {
-                    var detailedCoords = await _mapService.GetRoutePolylineAsync(createDto.PathCoordinates);
-                    var sourceCoords = (detailedCoords != null && detailedCoords.Count >= 2)
-                        ? detailedCoords
+                    var polylineResult = await _mapService.GetRoutePolylineAsync(createDto.PathCoordinates);
+                    var sourceCoords = polylineResult.Coordinates.Count >= 2
+                        ? polylineResult.Coordinates
                         : createDto.PathCoordinates;
 
                     var coordinates = sourceCoords
@@ -452,9 +452,10 @@ namespace ServisTakipApi.Services
                     }).ToList();
 
                     var calculatedPolyline = await _mapService.GetRoutePolylineAsync(stopCoords);
-                    if (calculatedPolyline != null && calculatedPolyline.Count > 0)
+                    if (calculatedPolyline.Coordinates.Count > 0)
                     {
-                        pathCoordinates = calculatedPolyline;
+
+                        pathCoordinates = calculatedPolyline.Coordinates;
                     }
                 }
 
