@@ -336,17 +336,18 @@ namespace ServisTakipApi.Services
 
                 // 1. Haritada mavi pin olarak gösterilecek kayıtlı yolcu durakları
                 var existingStops = route.Stops
-                    .Where(s => s.IsActive && s.Location != null)
+                    .Where(s => s.Location != null)
                     .OrderBy(s => s.StopOrder)
                     .Select(s => new ExistingStopDto
                     {
                         Label = s.Passenger != null && !string.IsNullOrWhiteSpace(s.Passenger.Name)
-                            ? $"{s.Passenger.Name} {s.Passenger.Surname}".Trim()
-                            : $"Durak {s.StopOrder}",
+                    ? $"{s.Passenger.Name} {s.Passenger.Surname}".Trim()
+                    : $"Durak {s.StopOrder}",
                         Latitude = s.Location.Y,
                         Longitude = s.Location.X
                     })
                     .ToList();
+                Console.WriteLine($"🔍 [PreviewRoute] '{route.Name}' için bulunan durak sayısı: {existingStops.Count}");
 
                 // 2. Güzergah polyline çizgisi koordinatları
                 List<CoordinateDto> pathCoordinates = new();
@@ -385,12 +386,12 @@ namespace ServisTakipApi.Services
                     PathCoordinates = pathCoordinates
                 };
 
-                return Response<RoutePreviewResponseDto>.Successful("Rota önizlemesi başarıyla getirildi.", responseDto);
+                return Response<RoutePreviewResponseDto>.Successful("Rota önizlemesi getirildi.", responseDto);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "PreviewRouteForJoinAsync failed for routeCode {RouteCode}", routeCode);
-                return Response<RoutePreviewResponseDto>.Fail("Rota önizlemesi yüklenirken bir hata oluştu.");
+                _logger.LogError(ex, "PreviewRouteForJoinAsync hatası: {RouteCode}", routeCode);
+                return Response<RoutePreviewResponseDto>.Fail("Rota önizlemesi yüklenirken hata oluştu.");
             }
         }
 

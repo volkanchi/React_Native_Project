@@ -12,7 +12,8 @@ import SelectStopScreen from "../screens/SelectStopScreen";
 // Yolcu | Sofor | Firma | Admin. Test/mock login akışında ise "Driver"/"Passenger" değerleri
 // üretilebiliyor; ikisini birden karşılayalım ki gerçek API ile de mock veriyle de doğru
 // panel açılsın.
-const isDriverRole = (role: string | null) => role === "Sofor" || role === "Driver";
+const isDriverRole = (role: string | null) =>
+  role === "Sofor" || role === "Driver";
 
 type RootStackParamList = {
   Login: undefined;
@@ -79,9 +80,19 @@ export default function AppNavigator() {
                 onNavigateToLiveTracking={(routeId) =>
                   navigation.navigate("LiveTracking", { routeId })
                 }
-                onNavigateToSelectStop={(routeCode, routeName, pathCoords) =>
-                  navigation.navigate("SelectStop", { routeCode, routeName, pathCoordinates: pathCoords })
-                }
+                onNavigateToSelectStop={(
+                  routeCode,
+                  routeName,
+                  pathCoordinates,
+                  existingStops,
+                ) => {
+                  navigation.navigate("SelectStop", {
+                    routeCode,
+                    routeName,
+                    pathCoordinates,
+                    existingStops: existingStops || [], // 4. parametrenin SelectStop ekranına aktarıldığından emin olun
+                  });
+                }}
                 onLogout={handleLogout}
               />
             )}
@@ -93,4 +104,3 @@ export default function AppNavigator() {
     </Stack.Navigator>
   );
 }
-

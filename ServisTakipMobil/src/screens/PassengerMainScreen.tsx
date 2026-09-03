@@ -56,30 +56,37 @@ export default function PassengerMainScreen({
   };
 
   const handlePreviewRoute = async () => {
-    if (!routeCode.trim())
-      return Alert.alert("Uyarı", "Lütfen bir rota kodu giriniz.");
-
-    setLoading(true);
-    const token = await storageService.getToken();
-    if (!token) return;
-
-    const result = await routeService.previewRoute(routeCode.trim(), token);
-
-    if (result.success && result.data) {
-      setRouteCode("");
-      // existingStops listesini de sayfaya gönderiyoruz
-      onNavigateToSelectStop(
-        routeCode.trim(),
-        result.data.name,
-        result.data.pathCoordinates,
-        result.data.existingStops || [],
-      );
-    } else {
-      Alert.alert("Hata", result.message || "Rota bulunamadı.");
-    }
+  if (!routeCode.trim()) return Alert.alert('Uyarı', 'Lütfen bir rota kodu giriniz.');
+  
+  setLoading(true);
+  const token = await storageService.getToken();
+  if (!token) {
     setLoading(false);
-  };
+    return;
+  }
 
+  const result = await routeService.previewRoute(routeCode.trim(), token);
+  
+  if (result.success && result.data) {
+    // Gelen veriyi kontrol etmek için konsola basalım:
+    console.log("🔍 [Preview API Yanıtı]:", result.data);
+
+    const stops = result.data.existingStops || result.data.ExistingStops || [];
+    const pathCoords = result.data.pathCoordinates || result.data.PathCoordinates || [];
+    const name = result.data.name || result.data.Name || '';
+
+    setRouteCode('');
+    onNavigateToSelectStop(
+      routeCode.trim(),
+      name,
+      pathCoords,
+      stops
+    );
+  } else {
+    Alert.alert('Hata', result.message || 'Rota bulunamadı.');
+  }
+  setLoading(false);
+};
   return (
     <View style={styles.container}>
       {/* Arka Plan Haritası (Süs Niyetine) */}
