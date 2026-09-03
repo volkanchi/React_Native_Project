@@ -1,18 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Feather } from '@expo/vector-icons';
 import { routeService } from '../services/routeService';
 import { storageService } from '../services/storageService';
+import { mapService, Coordinate } from '../services/mapService'; // Servis dahil edildi
 
 export default function SelectStopScreen({ route, navigation }: any) {
-  // PassengerMainScreen'den gelen veriler
   const { routeCode, routeName, pathCoordinates } = route.params;
-  
-  const [selectedLocation, setSelectedLocation] = useState<{latitude: number, longitude: number} | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [routePolyline, setRoutePolyline] = useState<Coordinate[]>([]);
+  const [calculatingRoute, setCalculatingRoute] = useState(true);
 
-  // Haritayı, rotanın ilk noktasına (veya varsayılan İstanbul'a) ortala
+  // Gelen ham durak noktalarını ORS üzerinden gerçek cadde çizgisine dönüştür
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchRealStreetPath = async () => {
+      if (pathCoordinates && pathCoordinates.length >= 2) {
+        setCalculatingRoute(true);
+        // Ham koordinatları backend proxy'si üzerinden ORS'ye gönderiyoruz
+        const realCoords = await mapService.getRoutePolyline(pathCoordinates);
+        if (isMounted) {
+          setRoutePolyline(realCoords);
+          setCalculatingRoute(false);
+        }
+      } else {
+        setCalculatingRoute(false);
+      }
+    };
+
+    fetchRealStreetPath();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [pathCoordinates]);
+
   const initialRegion = pathCoordinates && pathCoordinates.length > 0
     ? { latitude: pathCoordinates[0].latitude, longitude: pathCoordinates[0].longitude, latitudeDelta: 0.08, longitudeDelta: 0.08 }
     : { latitude: 41.0082, longitude: 28.9784, latitudeDelta: 0.08, longitudeDelta: 0.08 };
@@ -22,19 +47,16 @@ export default function SelectStopScreen({ route, navigation }: any) {
       Alert.alert("Uyarı", "Lütfen haritaya dokunarak bineceğiniz yeri işaretleyin.");
       return;
     }
-
     setLoading(true);
     const token = await storageService.getToken();
     if (token) {
-      // ASIL KAYIT İŞLEMİ BURADA YAPILIYOR (Seçilen konum ile birlikte)
       const res = await routeService.joinRoute({
         routeCode: routeCode,
         location: selectedLocation
       }, token);
-
       if (res.success) {
         Alert.alert("Başarılı", "Servis güzergahına başarıyla dahil oldunuz!");
-        navigation.navigate("PassengerMain"); // Ana ekrana geri dön (Listesi yenilenecek)
+        navigation.navigate("PassengerMain");
       } else {
         Alert.alert("Hata", res.message || "Katılım başarısız.");
       }
@@ -44,23 +66,35 @@ export default function SelectStopScreen({ route, navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <MapView 
+      <MapView
         style={StyleSheet.absoluteFillObject}
         provider={PROVIDER_GOOGLE}
         initialRegion={initialRegion}
-        // Haritaya tıklanınca pin koy
         onPress={(e) => setSelectedLocation(e.nativeEvent.coordinate)}
       >
-        {/* Güzergah Çizgisi */}
-        {pathCoordinates && pathCoordinates.length > 1 && (
-          <Polyline coordinates={pathCoordinates} strokeColor="#2563EB" strokeWidth={4} />
+        {/* ORS'den dönen gerçek cadde/otoyol güzergahı */}
+        {routePolyline.length > 1 && (
+          <Polyline
+            coordinates={routePolyline}
+            strokeColor="#2563EB"
+            strokeWidth={4}
+            zIndex={999}
+            lineJoin="round"
+          />
         )}
 
-        {/* Kullanıcının Koyduğu Pin */}
+        {/* Kullanıcının biniş noktası olarak seçtiği pin */}
         {selectedLocation && (
           <Marker coordinate={selectedLocation} pinColor="#10B981" title="Biniş Noktam" />
         )}
       </MapView>
+
+      {calculatingRoute && (
+        <View style={styles.loadingBadge}>
+          <ActivityIndicator size="small" color="#2563EB" />
+          <Text style={styles.loadingText}>Güzergah hesaplanıyor...</Text>
+        </View>
+      )}
 
       <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
         <Feather name="arrow-left" size={24} color="#111827" />
@@ -69,10 +103,9 @@ export default function SelectStopScreen({ route, navigation }: any) {
       <View style={styles.bottomSheet}>
         <Text style={styles.title}>{routeName}</Text>
         <Text style={styles.subtitle}>Lütfen haritaya dokunarak bineceğiniz noktayı işaretleyin.</Text>
-
-        <TouchableOpacity 
-          style={[styles.confirmButton, !selectedLocation && { opacity: 0.5 }]} 
-          onPress={handleJoin} 
+        <TouchableOpacity
+          style={[styles.confirmButton, (!selectedLocation || loading) && { opacity: 0.5 }]}
+          onPress={handleJoin}
           disabled={!selectedLocation || loading}
         >
           {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.confirmButtonText}>Buradan Bineceğim</Text>}
@@ -89,5 +122,22 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: 'bold', color: '#111827', marginBottom: 6 },
   subtitle: { fontSize: 13, color: '#6B7280', marginBottom: 20 },
   confirmButton: { backgroundColor: '#10B981', padding: 16, borderRadius: 12, alignItems: 'center' },
-  confirmButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
+  confirmButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  loadingBadge: {
+    position: 'absolute',
+    top: 54,
+    alignSelf: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  loadingText: { fontSize: 12, fontWeight: '600', color: '#1E4ED8' },
 });

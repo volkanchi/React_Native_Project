@@ -111,17 +111,16 @@ export default function DriverMainScreen({
   const [routeData, setRouteData] = useState<RouteState | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
 
-  const driverCoordRef = useRef<{ latitude: number; longitude: number } | null>(
-    null,
-  );
+  const driverCoordRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const routeRequestIdRef = useRef(0);
+  const hasFirstLocationRef = useRef(false);
+  const [routeTrigger, setRouteTrigger] = useState(0);
+
   const [driverCoord, setDriverCoord] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
-  const [pathTraveled, setPathTraveled] = useState<
-    { latitude: number; longitude: number }[]
-  >([]);
+  const [pathTraveled, setPathTraveled] = useState<{ latitude: number; longitude: number }[]>([]);
   const [usingSimulatedLocation, setUsingSimulatedLocation] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [routeCoordinates, setRouteCoordinates] = useState<Coordinate[]>([]);
@@ -173,10 +172,7 @@ export default function DriverMainScreen({
     setLoadingRoutes(false);
   };
 
-  const loadRouteDetail = async (
-    routeIdParam?: string,
-    tokenParam?: string,
-  ) => {
+  const loadRouteDetail = async (routeIdParam?: string, tokenParam?: string) => {
     const token = tokenParam || (await storageService.getToken());
     if (!token) return;
 
@@ -214,10 +210,7 @@ export default function DriverMainScreen({
 
   useEffect(() => {
     if (tripActive) {
-      timerIntervalRef.current = setInterval(
-        () => setElapsedSeconds((s) => s + 1),
-        1000,
-      );
+      timerIntervalRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
     } else if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
     }
@@ -250,6 +243,11 @@ export default function DriverMainScreen({
     setDriverCoord(coord);
     setPathTraveled((prev) => [...prev.slice(-200), coord]);
 
+    if (!hasFirstLocationRef.current) {
+      hasFirstLocationRef.current = true;
+      setRouteTrigger((prev) => prev + 1);
+    }
+
     if (!routeIdRef.current) return;
     sendLocationUpdate({
       routeId: routeIdRef.current,
@@ -264,15 +262,13 @@ export default function DriverMainScreen({
     const routeStops = routeData?.stops ?? [];
     if (routeStops.length === 0) return;
     setDriverCoord((prev) => {
-      const target =
-        routeStops[Math.min(currentStopIndex, routeStops.length - 1)];
+      const target = routeStops[Math.min(currentStopIndex, routeStops.length - 1)];
       const base = prev ?? {
         latitude: target.latitude,
         longitude: target.longitude,
       };
       const nextLat = base.latitude + (target.latitude - base.latitude) * 0.25;
-      const nextLng =
-        base.longitude + (target.longitude - base.longitude) * 0.25;
+      const nextLng = base.longitude + (target.longitude - base.longitude) * 0.25;
       handleLocationUpdate(nextLat, nextLng, 8.5, 0);
       return { latitude: nextLat, longitude: nextLng };
     });
@@ -350,7 +346,9 @@ export default function DriverMainScreen({
       setPathTraveled([]);
       driverCoordRef.current = null;
       setDriverCoord(null);
+      hasFirstLocationRef.current = false;
       await startLocationBroadcast();
+      setRouteTrigger((prev) => prev + 1);
     } catch (error) {
       Alert.alert("Hata", "Sefer başlatılamadı. Bağlantıyı kontrol edin.");
     } finally {
@@ -383,13 +381,59 @@ export default function DriverMainScreen({
     };
   }, []);
 
+  // 1. Rota Duraklarını Ayrıştırma (Başlangıç, Aktif Ara Duraklar, Varış)
+  const { startPoint, endPoint, activeIntermediateStops, navStops } = useMemo(() => {
+    const stops = routeData?.stops;
+    if (!stops || stops.length === 0) {
+      return {
+        startPoint: null,
+        endPoint: null,
+        activeIntermediateStops: EMPTY_STOPS,
+        navStops: EMPTY_STOPS,
+      };
+    }
+
+    const start = stops[0];
+    const end = stops.length > 1 ? stops[stops.length - 1] : null;
+
+    // Ara durakları filtrele
+    const rawIntermediates = stops.length > 2 ? stops.slice(1, -1) : [];
+    const activeOnly = rawIntermediates.filter((s) =>
+      activePassengers.includes(s.passengerId?.toLowerCase() || ""),
+    );
+
+    const origin = driverCoordRef.current ?? {
+      latitude: start.latitude,
+      longitude: start.longitude,
+    };
+    const orderedIntermediates = orderStopsByProximity(origin, activeOnly);
+
+    // Sıralı navigasyon zinciri: Aktif Ara Duraklar + Varış Noktası
+    const targetStops = [
+      ...orderedIntermediates,
+      ...(end ? [end] : orderedIntermediates.length === 0 ? [start] : []),
+    ];
+
+    return {
+      startPoint: start,
+      endPoint: end,
+      activeIntermediateStops: orderedIntermediates,
+      navStops: targetStops,
+    };
+  }, [routeData?.stops, activePassengers]);
+
+  const safeStopIndex = Math.min(
+    currentStopIndex,
+    Math.max(navStops.length - 1, 0),
+  );
+
   const handleAdvanceStop = (index: number) => {
     if (!tripActive) {
       Alert.alert("Uyarı", "Durak işaretlemek için önce seferi başlatın.");
       return;
     }
-    if (index !== safeStopIndex || activeStops.length === 0) return;
-    if (index === activeStops.length - 1) {
+    if (index !== safeStopIndex || navStops.length === 0) return;
+    if (index === navStops.length - 1) {
       Alert.alert(
         "Son Durak",
         "Son durağa ulaştınız. Seferi bitirmek ister misiniz?",
@@ -410,80 +454,43 @@ export default function DriverMainScreen({
     setCurrentStopIndex((i) => i + 1);
   };
 
-  // Son durak (şirket/varış noktası) korunarak aktif yolcular yakına göre sıralanır
-  const activeStops = useMemo(() => {
-    const stops = routeData?.stops;
-    if (!stops || stops.length === 0) return EMPTY_STOPS;
-
-    const lastStop = stops[stops.length - 1];
-    const intermediateStops = stops
-      .slice(0, -1)
-      .filter((s) =>
-        activePassengers.includes(s.passengerId?.toLowerCase() || ""),
-      );
-
-    const origin = driverCoord ?? {
-      latitude: stops[0].latitude,
-      longitude: stops[0].longitude,
-    };
-
-    const orderedIntermediate = orderStopsByProximity(
-      origin,
-      intermediateStops,
-    );
-    return stops.length === 1 ? stops : [...orderedIntermediate, lastStop];
-  }, [routeData?.stops, activePassengers, driverCoord]);
-
-  const safeStopIndex = Math.min(
-    currentStopIndex,
-    Math.max(activeStops.length - 1, 0),
-  );
-
-  // Şoför konumu değiştikçe veya yeni yolcu odaya girdikçe polyline yeniden çizilir
+  // 2. OpenRouteService Polyline Senkronizasyonu
   useEffect(() => {
-    if (activeStops.length === 0) {
+    if (!startPoint || navStops.length === 0) {
       setRouteCoordinates((prev) => (prev.length > 0 ? [] : prev));
       return;
     }
 
-    const remainingStops = activeStops.slice(safeStopIndex);
-    if (remainingStops.length === 0) {
-      setRouteCoordinates((prev) => (prev.length > 0 ? [] : prev));
-      return;
-    }
+    const origin = driverCoordRef.current
+      ? { latitude: driverCoordRef.current.latitude, longitude: driverCoordRef.current.longitude }
+      : { latitude: startPoint.latitude, longitude: startPoint.longitude };
 
-    const origin = driverCoord
-      ? { latitude: driverCoord.latitude, longitude: driverCoord.longitude }
-      : {
-          latitude: remainingStops[0].latitude,
-          longitude: remainingStops[0].longitude,
-        };
-
-    const rawStops = driverCoord ? remainingStops : remainingStops.slice(1);
+    const remainingStops = navStops.slice(safeStopIndex);
 
     const dynamicStops: Coordinate[] = [
       origin,
-      ...rawStops.map((s) => ({
+      ...remainingStops.map((s) => ({
         latitude: s.latitude,
         longitude: s.longitude,
       })),
     ];
 
     if (dynamicStops.length >= 2) {
+      const requestId = ++routeRequestIdRef.current;
       mapService.getRoutePolyline(dynamicStops).then((coords) => {
-        if (coords && coords.length > 0) {
+        if (requestId === routeRequestIdRef.current && coords.length > 0) {
           setRouteCoordinates(coords);
         }
       });
     }
-  }, [activeStops, safeStopIndex]);
+  }, [startPoint, navStops, safeStopIndex, routeTrigger]);
 
   const occupancy = Math.min(
     activePassengers.length,
     routeData?.capacity || activePassengers.length,
   );
   const occupancyPct = routeData?.capacity ? occupancy / routeData.capacity : 0;
-  const nextStop = activeStops[safeStopIndex];
+  const nextStop = navStops[safeStopIndex];
   const mapCenter = routeData?.stops?.[0]
     ? {
         latitude: routeData.stops[0].latitude,
@@ -568,6 +575,7 @@ export default function DriverMainScreen({
         showsUserLocation={!usingSimulatedLocation}
         showsMyLocationButton={false}
       >
+        {/* ORS Rota Çizgisi */}
         {isMapReady && routeCoordinates.length > 1 && (
           <Polyline
             key={`route-polyline-${routeCoordinates.length}`}
@@ -578,6 +586,8 @@ export default function DriverMainScreen({
             lineJoin="round"
           />
         )}
+
+        {/* Kat Edilen Yol */}
         {isMapReady && pathTraveled.length > 1 && (
           <Polyline
             key="traveled-line"
@@ -587,20 +597,50 @@ export default function DriverMainScreen({
           />
         )}
 
+        {/* 1. Başlangıç Noktası (Yeşil Pin) */}
+        {isMapReady && startPoint && (
+          <Marker
+            key="route-start-marker"
+            coordinate={{
+              latitude: startPoint.latitude,
+              longitude: startPoint.longitude,
+            }}
+            title="Başlangıç Noktası"
+            description={startPoint.label}
+            pinColor="#10B981"
+          />
+        )}
+
+        {/* 2. Ara Yolcu Durakları (Turuncu / Gri Pin) */}
         {isMapReady &&
-          activeStops.map((stop, i) => (
+          activeIntermediateStops.map((stop, i) => (
             <Marker
-              key={`driver-stop-${stop.id}`}
+              key={`intermediate-stop-${stop.id}`}
               coordinate={{
                 latitude: stop.latitude,
                 longitude: stop.longitude,
               }}
               title={stop.label}
               description={stop.time}
-              pinColor={i <= safeStopIndex ? "#94A3B8" : "#F59E0B"}
+              pinColor={i < safeStopIndex ? "#94A3B8" : "#F59E0B"}
             />
           ))}
 
+        {/* 3. Varış Noktası (Kırmızı Pin) */}
+        {isMapReady && endPoint && (
+          <Marker
+            key="route-end-marker"
+            coordinate={{
+              latitude: endPoint.latitude,
+              longitude: endPoint.longitude,
+            }}
+            title="Varış Noktası (Şirket)"
+            description={endPoint.label}
+            pinColor="#EF4444"
+          />
+        )}
+
+        {/* 4. Şoförün Canlı Konumu (Mavi Pin) */}
         {isMapReady && driverCoord && (
           <Marker
             key="driver-current-marker"
@@ -738,9 +778,13 @@ export default function DriverMainScreen({
                 DURAKLAR (SADECE AKTİF YOLCULAR)
               </Text>
               {routeData.stops.map((stop, i) => {
-                const isActive = activePassengers.includes(
-                  stop.passengerId.toLowerCase(),
-                );
+                const isStart = i === 0;
+                const isEnd = i === routeData.stops.length - 1;
+                const isActive =
+                  isStart ||
+                  isEnd ||
+                  activePassengers.includes(stop.passengerId?.toLowerCase() || "");
+
                 return (
                   <TouchableOpacity
                     key={stop.id}
@@ -762,7 +806,11 @@ export default function DriverMainScreen({
                     </View>
                     <View style={styles.stopTextWrap}>
                       <Text style={styles.stopName}>
-                        {stop.label} {!isActive && "(Bağlı Değil)"}
+                        {isStart
+                          ? `[Başlangıç] ${stop.label}`
+                          : isEnd
+                            ? `[Varış] ${stop.label}`
+                            : `${stop.label} ${!isActive ? "(Bağlı Değil)" : ""}`}
                       </Text>
                       <Text style={styles.stopTime}>{stop.time}</Text>
                     </View>
