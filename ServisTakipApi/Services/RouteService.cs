@@ -162,8 +162,16 @@ namespace ServisTakipApi.Services
             return null;
         }
 
-        private static RouteResponseDto ToResponse(Models.Route route)
+         private static RouteResponseDto ToResponse(Models.Route route)
         {
+            var pathCoords = route.RoutePath?.Coordinates;
+            var orderedStops = route.Stops.OrderBy(s => s.StopOrder).ToList();
+
+            double? startLat = pathCoords is { Length: > 0 } ? pathCoords.First().Y : orderedStops.FirstOrDefault()?.Location.Y;
+            double? startLng = pathCoords is { Length: > 0 } ? pathCoords.First().X : orderedStops.FirstOrDefault()?.Location.X;
+            double? endLat = pathCoords is { Length: > 0 } ? pathCoords.Last().Y : orderedStops.LastOrDefault()?.Location.Y;
+            double? endLng = pathCoords is { Length: > 0 } ? pathCoords.Last().X : orderedStops.LastOrDefault()?.Location.X;
+
             return new RouteResponseDto
             {
                 Id = route.Id,
@@ -172,12 +180,16 @@ namespace ServisTakipApi.Services
                 CompanyId = route.CompanyId,
                 VehicleId = route.VehicleId,
                 DriverId = route.DriverId,
+                StartLatitude = startLat,
+                StartLongitude = startLng,
+                EndLatitude = endLat,
+                EndLongitude = endLng,
                 PathCoordinates = route.RoutePath?.Coordinates.Select(c => new CoordinateDto
                 {
                     Latitude = c.Y,
                     Longitude = c.X
                 }).ToList() ?? new List<CoordinateDto>(),
-                Stops = route.Stops.OrderBy(s => s.StopOrder).Select(s => new RouteStopResponseDto
+                Stops = orderedStops.Select(s => new RouteStopResponseDto
                 {
                     Id = s.Id,
                     StopOrder = s.StopOrder,
@@ -287,43 +299,13 @@ namespace ServisTakipApi.Services
             return Response<IEnumerable<object>>.Successful("Rotalar başarıyla getirildi.", result);
         }
 
-        public async Task<Response<RouteResponseDto>> GetPassengerRouteAsync(Guid passengerId, Guid routeId)
+       public async Task<Response<RouteResponseDto>> GetPassengerRouteAsync(Guid passengerId, Guid routeId)
         {
             var route = await _routeRepository.GetRouteWithStopsByIdAsync(routeId);
             if (route == null || !route.Stops.Any(s => s.PassengerId == passengerId))
                 return Response<RouteResponseDto>.Fail("Rota bulunamadı veya bu rotaya dahil değilsiniz.");
 
             return Response<RouteResponseDto>.Successful("Rota detayları başarıyla getirildi.", ToResponse(route));
-        }
-
-        public async Task<Response<object>> GetDriverActiveRouteAsync(Guid userId)
-        {
-            var route = await _routeRepository.GetActiveRouteByDriverUserIdAsync(userId);
-
-            if (route == null)
-                return Response<object>.Fail("Üzerinize atanmış aktif bir rota bulunamadı.");
-
-            var result = new
-            {
-                RouteId = route.Id,
-                Name = route.Name,
-                RouteCode = route.RouteCode,
-                Plate = route.Vehicle?.PlateNumber ?? "Araç Atanmadı",
-                VehicleModel = route.Vehicle?.BrandAndModel ?? "Bilinmiyor",
-                Capacity = route.Vehicle?.Capacity ?? 0,
-                Stops = route.Stops.OrderBy(s => s.StopOrder).Select(s => new
-                {
-                    Id = s.Id,
-                    PassengerId = s.PassengerId,
-                    Label = $"Durak {s.StopOrder}",
-                    Time = "Bekleniyor",
-                    Latitude = s.Location.Y,
-                    Longitude = s.Location.X,
-                    IsActive = s.IsActive
-                })
-            };
-
-            return Response<object>.Successful("Aktif rota getirildi.", result);
         }
 
         public async Task<Response<RoutePreviewResponseDto>> PreviewRouteForJoinAsync(string routeCode)
@@ -431,6 +413,18 @@ namespace ServisTakipApi.Services
 
         private static object ToDriverRouteDto(Models.Route route)
         {
+            // RoutePath (şirketin çizdiği ORS güzergahı) varsa gerçek Başlangıç/Bitiş
+            // koordinatlarını oradan al; yoksa duraklara düş. Önceki sürümde bu alanlar
+            // hiç dönmüyordu ve frontend her rota için aynı sabit (hardcoded) koordinatlara
+            // düşüyordu — farklı rotaların polyline'ları bu yüzden üst üste biniyordu.
+            var pathCoords = route.RoutePath?.Coordinates;
+            var orderedStops = route.Stops.OrderBy(s => s.StopOrder).ToList();
+
+            double? startLat = pathCoords is { Length: > 0 } ? pathCoords.First().Y : orderedStops.FirstOrDefault()?.Location.Y;
+            double? startLng = pathCoords is { Length: > 0 } ? pathCoords.First().X : orderedStops.FirstOrDefault()?.Location.X;
+            double? endLat = pathCoords is { Length: > 0 } ? pathCoords.Last().Y : orderedStops.LastOrDefault()?.Location.Y;
+            double? endLng = pathCoords is { Length: > 0 } ? pathCoords.Last().X : orderedStops.LastOrDefault()?.Location.X;
+
             return new
             {
                 RouteId = route.Id,
@@ -439,7 +433,13 @@ namespace ServisTakipApi.Services
                 Plate = route.Vehicle?.PlateNumber ?? "Araç Atanmadı",
                 VehicleModel = route.Vehicle?.BrandAndModel ?? "Bilinmiyor",
                 Capacity = route.Vehicle?.Capacity ?? 0,
-                Stops = route.Stops.OrderBy(s => s.StopOrder).Select(s => new
+                StartLatitude = startLat,
+                StartLongitude = startLng,
+                EndLatitude = endLat,
+                EndLongitude = endLng,
+                StartPointName = "Başlangıç Noktası",
+                EndPointName = "Varış Noktası",
+                Stops = orderedStops.Select(s => new
                 {
                     Id = s.Id,
                     PassengerId = s.PassengerId,

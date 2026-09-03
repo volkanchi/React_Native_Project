@@ -47,6 +47,7 @@ export const sendLocationUpdate = async (locationDto: {
   longitude: number;
   speed?: number | null;
   heading?: number | null;
+  direction?: string;
   timestamp?: string;
 }): Promise<boolean> => {
   if (connection && connection.state === signalR.HubConnectionState.Connected) {
