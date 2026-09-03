@@ -431,7 +431,8 @@ export default function DriverMainScreen({
     setCurrentStopIndex(0);
     setRouteCoordinates([]);
   };
-  // çift yön
+
+  // Çift yön hesaplaması
   const activePlan = useMemo(() => {
     if (!routeData) return null;
 
@@ -479,8 +480,7 @@ export default function DriverMainScreen({
       return;
     }
     if (!activePlan) return;
-    // Sadece sıradaki (safeStopIndex) durağa dokunulduğunda ilerlesin;
-    // aksi halde listeden rastgele bir satıra dokunmak sırayı bozuyordu.
+
     if (index !== safeStopIndex) return;
 
     if (index === activePlan.orderedWaypoints.length - 1) {
@@ -503,6 +503,7 @@ export default function DriverMainScreen({
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setCurrentStopIndex((i) => i + 1);
   };
+
   // ORS Polyline: [Kalkış/Şoför] -> [Aktif Yolcular] -> [Varış]
   useEffect(() => {
     if (!activePlan) return;
@@ -650,6 +651,7 @@ export default function DriverMainScreen({
             lineJoin="round"
           />
         )}
+
         {/* Kat Edilen Yol */}
         {isMapReady && pathTraveled.length > 1 && (
           <Polyline
@@ -659,6 +661,7 @@ export default function DriverMainScreen({
             strokeWidth={3}
           />
         )}
+
         {/* 1. Kalkış Noktası (Yeşil Pin - Sabah Depo, Akşam Şirket) */}
         {isMapReady && activePlan && (
           <Marker
@@ -671,32 +674,23 @@ export default function DriverMainScreen({
             pinColor="#10B981"
           />
         )}
-        {/* 2. Aktif Yolcu Durakları (Turuncu/Gri Pin) */}+{" "}
+
+        {/* 2. Aktif Yolcu Durakları (Marker Pinleri) */}
         {isMapReady &&
           activePlan &&
           activePlan.orderedWaypoints.map((stop, i) => (
-            <TouchableOpacity
+            <Marker
               key={stop.id}
-              style={styles.stopItem}
-              onPress={() => handleAdvanceStop(i)}
-              disabled={!tripActive}
-            >
-              <View style={styles.stopMarkerContainer}>
-                <View
-                  style={[
-                    styles.stopMarker,
-                    i < safeStopIndex && styles.stopMarkerPassed,
-                    i === safeStopIndex && styles.stopMarkerCurrent,
-                  ]}
-                />
-                <View style={styles.stopConnector} />
-              </View>
-              <View style={styles.stopTextWrap}>
-                <Text style={styles.stopName}>{stop.label}</Text>
-                <Text style={styles.stopTime}>{stop.time}</Text>
-              </View>
-            </TouchableOpacity>
+              coordinate={{
+                latitude: stop.latitude,
+                longitude: stop.longitude,
+              }}
+              title={stop.label}
+              description={`Saat: ${stop.time}`}
+              pinColor={i <= safeStopIndex ? "#F59E0B" : "#94A3B8"}
+            />
           ))}
+
         {/* 3. Varış Noktası (Kırmızı Pin - Sabah Şirket, Akşam Depo) */}
         {isMapReady && activePlan && (
           <Marker
@@ -709,6 +703,7 @@ export default function DriverMainScreen({
             pinColor="#EF4444"
           />
         )}
+
         {/* 4. Canlı Şoför Konumu (Mavi Pin) */}
         {isMapReady && driverCoord && (
           <Marker
