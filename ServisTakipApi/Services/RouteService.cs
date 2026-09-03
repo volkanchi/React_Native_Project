@@ -203,7 +203,7 @@ namespace ServisTakipApi.Services
             };
         }
 
-        private const double MaxCoverageMeters = 500;
+        private const double MaxCoverageMeters = 1000;
         // Yolcu noktasını rota omurgasına (RoutePath) izdüşürür ve aradaki
         // kuş uçuşu mesafeyi metre cinsinden döner. RoutePath tanımlı değilse
         // (şirket henüz güzergah çizmemişse) null döner — kapsama kontrolü atlanır.

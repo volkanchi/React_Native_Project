@@ -72,7 +72,7 @@ export default function SelectStopScreen({ route, navigation }: any) {
       Alert.alert(
         'Güzergah Dışında',
         res.message ||
-          'Seçtiğiniz nokta bu servisin güzergah alanının dışındadır. Lütfen ana güzergaha en fazla 500 metre mesafede bir nokta seçiniz.',
+          'Seçtiğiniz nokta bu servisin güzergah alanının dışındadır. Lütfen ana güzergaha en fazla 1km mesafede bir nokta seçiniz.',
       );
       return;
     }
