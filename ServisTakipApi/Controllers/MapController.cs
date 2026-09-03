@@ -20,18 +20,26 @@ namespace ServisTakipApi.Controllers
         [HttpPost("route")]
         public async Task<IActionResult> GetRoute([FromBody] RouteRequestDto request)
         {
-            if (request?.Stops == null || request.Stops.Count < 2)
+            try
             {
-                return BadRequest(new { success = false, message = "En az 2 durak noktası gereklidir." });
-            }
+                if (request?.Stops == null || request.Stops.Count < 2)
+                {
+                    return BadRequest(new { success = false, message = "En az 2 durak noktası gereklidir." });
+                }
 
-            var polyline = await _mapService.GetRoutePolylineAsync(request.Stops);
-            if (polyline.Count == 0)
+                var polyline = await _mapService.GetRoutePolylineAsync(request.Stops);
+                if (polyline == null || polyline.Count == 0)
+                {
+                    return BadRequest(new { success = false, message = "Güzergah hesaplanamadı. Backend konsol loglarını kontrol edin." });
+                }
+
+                return Ok(new { success = true, data = polyline });
+            }
+            catch (Exception ex)
             {
-                return BadRequest(new { success = false, message = "Güzergah hesaplanamadı." });
+                Console.WriteLine($"❌ [MapController Hatası]: {ex}");
+                return StatusCode(500, new { success = false, message = ex.Message });
             }
-
-            return Ok(new { success = true, data = polyline });
         }
     }
 }
