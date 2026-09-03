@@ -49,7 +49,12 @@ namespace ServisTakipApi.Services
                 LineString? routePath = null;
                 if (createDto.PathCoordinates != null && createDto.PathCoordinates.Count >= 2)
                 {
-                    var coordinates = createDto.PathCoordinates
+                    var detailedCoords = await _mapService.GetRoutePolylineAsync(createDto.PathCoordinates);
+                    var sourceCoords = (detailedCoords != null && detailedCoords.Count >= 2)
+                        ? detailedCoords
+                        : createDto.PathCoordinates;
+
+                    var coordinates = sourceCoords
                         .Select(c => new Coordinate(c.Longitude, c.Latitude))
                         .ToArray();
                     routePath = _geometryFactory.CreateLineString(coordinates);
@@ -260,7 +265,7 @@ namespace ServisTakipApi.Services
                 IsWithinCoverage = true,
                 WalkingDistanceMeters = distanceMeters,
                 SnapCoordinate = new CoordinateDto { Latitude = snapCoordinate.Y, Longitude = snapCoordinate.X },
-                RequiresWalkingNotice = true
+                RequiresWalkingNotice = false
             });
         }
 
