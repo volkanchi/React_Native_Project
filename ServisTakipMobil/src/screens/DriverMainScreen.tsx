@@ -624,7 +624,6 @@ export default function DriverMainScreen({
       </View>
     );
   }
-
   return (
     <View style={styles.container}>
       <MapView
